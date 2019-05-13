@@ -1,0 +1,50 @@
+---
+title: "obsoletes"
+author: "Matt Jones"
+date: "5/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.tree)
+obj_pid <- c(1:10000)
+obj_obsoletes <- ifelse((obj_pid%%3 == 0), 0, obj_pid-1)
+df <- data.frame(pid = obj_pid, obsoletes = obj_obsoletes) %>%
+    mutate(pidname = pid) %>%
+    select(pid, obsoletes, pidname) %>%
+    mutate(obsoletes = case_when(
+                is.na(obsoletes) ~ 0,
+                TRUE ~ obsoletes
+            )) %>%
+    arrange(pid,obsoletes)
+df
+obstree <- FromDataFrameNetwork(df)
+obstree
+print(obstree , "level", "position", "pidname")
+```
+
+```{r plotit}
+plot(obstree , direction = "descend")
+```
+
+```{r record_version}
+obstree$Do(function(node) node$objectVersion <- node$level-1)
+children <- obstree$children
+for (child in children) {
+    child$Set(objectId = child$position)
+    child$Set(objectVersion = child$level)
+    child$Do(function(node) node$objectVersion <- node$level-1)
+}
+print(obstree, "level", "position", "objectId", "objectVersion")
+```
+
+```{r create_df}
+final_df <- ToDataFrameNetwork(obstree, "pidname", "objectId", "objectVersion") %>% 
+    arrange(objectId, objectVersion)
+final_df
+```
+
