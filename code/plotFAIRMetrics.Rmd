@@ -122,19 +122,66 @@ cum_dialect <- score_dialect %>% filter(metric %in% c("Cum. Findable", "Cum. Acc
 p <- ggplot(data=cum_dialect, mapping=aes(x=ym, y=mean, color=metric)) +
   geom_line() +
   geom_point(size=1) +
-  facet_grid(dialect ~ .) +
+  facet_grid(. ~ dialect) +
   theme_bw() +
   theme(panel.border = element_blank(),
         axis.line = element_line(colour = "black"),
         panel.grid.minor = element_blank(),
         panel.background = element_blank()) +
   scale_colour_manual(values=d1_colors) +
-  scale_x_date(date_breaks="year", date_minor_breaks="months", labels=date_format("%Y")) +
+  scale_x_date(date_breaks="2 years", date_minor_breaks="months", labels=date_format("%Y")) +
   xlab("Year") +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(standards$n[standards$dialect == "EML"], big.mark=","), " EML and ", format(standards$n[standards$dialect == "ISO"], big.mark=","), " ISO metadata records"))
-ggsave("../images/dataone-fair-scores-dialect.png", width = 8, height = 4)
+ggsave("../images/dataone-fair-scores-dialect-horiz.png", width = 8, height = 4)
 p
 ```
 
+
+## Assessment of repository collections
+
+Split results across DataONE repositories.
+
+```{r calc_cumulative_by_repo}
+score_repo <- most_recent %>%
+  group_by(datasource, ym) %>%
+  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR)) %>%
+  mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
+  select(datasource, ym, f, a, i, r, fc, ac, ic, rc) %>%
+  gather(metric, mean, -datasource, -ym)
+score_repo$metric <- factor(score_repo$metric,
+                                  levels=c("f", "a", "i", "r", "fc", "ac", "ic", "rc"),
+                                  labels=c("Findable", "Accessible", "Interoperable", "Reusable",
+                                           "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+
+```
+
+```{r plot_cumulative_by_repo}
+cum_repo <- score_repo %>% 
+  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) %>%
+  filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:EDI", "urn:node:LTER", "urn:node:PISCO", "urn:node:SANPARKS")))
+
+cum_repo %>%
+  filter(metric %in% c("Cum. Findable")) %>%
+  group_by(datasource) %>%
+  summarize(n=n())
+
+p <- ggplot(data=cum_repo, mapping=aes(x=ym, y=mean, color=metric)) +
+  geom_line() +
+  geom_point(size=1) +
+  facet_wrap( ~ datasource, ncol=4) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_colour_manual(values=d1_colors) +
+  scale_x_date(date_breaks="5 years", date_minor_breaks="months", labels=date_format("%Y")) +
+  xlab("Year") +
+  scale_y_continuous(limits=c(0,100)) +
+  ylab("Average FAIR Score") +
+  ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
+ggsave("../images/dataone-fair-scores-repos.png", width = 8, height = 4)
+p
+```
