@@ -5,6 +5,8 @@ date: "5/10/2019"
 output: html_document
 ---
 
+DataONE has consistently focused on interoperability among data repositories to enable seamless access to well-described data on the Earth and the environment.  Our existing services promote data discovery and access through harmonization of the diverse metadata specifications used across communities, and through our integrated data search portal and services.  In terms of the FAIR principles, we have done a good job at Findable and Accessible, while as a community we have placed less emphasis on Interoperable and Reusable.  We present new DataONE services for quantitatively assessing metadata completeness and effectiveness relative to the FAIR principles. The services produce guidance for FAIRness at both the level of an individual data set and trends through time for repository, user, and funder data collections. These analytical results regarding conformance to FAIR principles are preliminary and based on proposed quantitative assessment metrics for FAIR which will be changed with input from the community.  Thus, these results should not be viewed as conclusive about the data sets presented, but rather illustrate the types of quantitative comparisons that will be able to be made when the FAIR metrics at DataONE have been finalized.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
@@ -15,6 +17,10 @@ library(tidyverse)
 library(lubridate)
 library(DT)
 ```
+
+# Load FAIR metrics scores
+
+FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
 
 ```{r load_data}
 fsr <- read_csv("../data/FAIR-scores-ranked.csv")
@@ -40,7 +46,7 @@ standards
 
 ## Overall FAIR asssessment
 
-Combined across all repositories and across metadata dialects.
+Comparison across all repositories and across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
 
 ```{r calc_cumulative_overall}
 score_cumulative <- most_recent %>%
@@ -78,7 +84,7 @@ ggsave("../images/dataone-fair-scores-overall.png", width = 8, height = 4)
 p
 ```
 
-And also examine the monthly variance.
+While the cumulative averages are quite smooth, especially as the collections grow in size, the monthly variability is still quite high.  This graph shows the average FAIR scores for data sets updated in each month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
 
 ```{r plot_monthly_overall}
 p <- ggplot(data=score_monthly, mapping=aes(x=ym, y=mean, color=metric)) +
@@ -101,7 +107,7 @@ p
 
 ## Assessment of EML and ISO metadata corpora
 
-Combined across all repositories, but split across metadata dialects.
+Combined across all repositories, but split across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
 
 ```{r calc_cumulative_by_dialect}
 score_dialect <- most_recent %>%
@@ -142,7 +148,7 @@ p
 
 ## Assessment of repository collections
 
-Split results across DataONE repositories.
+Split results across selected DataONE repositories.  FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
 
 ```{r calc_cumulative_by_repo}
 score_repo <- most_recent %>%
