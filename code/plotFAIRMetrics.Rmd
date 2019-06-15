@@ -35,6 +35,7 @@ head(most_recent)
 ```{r count_standards}
 standards <- data.frame(table(most_recent$dialect)) %>%
   rename(dialect=Var1, n=Freq)
+standards
 ```
 
 ## Overall FAIR asssessment
