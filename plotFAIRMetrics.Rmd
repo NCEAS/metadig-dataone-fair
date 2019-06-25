@@ -23,7 +23,7 @@ library(DT)
 FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
 
 ```{r load_data}
-fsr <- read_csv("../data/FAIR-scores-ranked.csv")
+fsr <- read_csv("FAIR-scores-ranked.csv")
 scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
       mutate(scoreF = scoreFindable * 100.0) %>%
       mutate(scoreA = scoreAccessible * 100.0) %>%
@@ -80,7 +80,7 @@ p <- ggplot(data=score_cumulative_alone, mapping=aes(x=ym, y=mean, color=metric)
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO metadata records"))
-ggsave("../images/dataone-fair-scores-overall.png", width = 8, height = 4)
+ggsave("dataone-fair-scores-overall.png", width = 8, height = 4)
 p
 ```
 
@@ -101,7 +101,7 @@ p <- ggplot(data=score_monthly, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO metadata records"))
-ggsave("../images/dataone-fair-scores-overall-monthly.png", width = 8, height = 4)
+ggsave("dataone-fair-scores-overall-monthly.png", width = 8, height = 4)
 p
 ```
 
@@ -141,7 +141,7 @@ p <- ggplot(data=cum_dialect, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(standards$n[standards$dialect == "EML"], big.mark=","), " EML and ", format(standards$n[standards$dialect == "ISO"], big.mark=","), " ISO metadata records"))
-ggsave("../images/dataone-fair-scores-dialect-horiz.png", width = 8, height = 4)
+ggsave("dataone-fair-scores-dialect-horiz.png", width = 8, height = 4)
 p
 ```
 
@@ -189,6 +189,6 @@ p <- ggplot(data=cum_repo, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score") +
   ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
-ggsave("../images/dataone-fair-scores-repos.png", width = 8, height = 4)
+ggsave("dataone-fair-scores-repos.png", width = 8, height = 4)
 p
 ```
