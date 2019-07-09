@@ -1,7 +1,7 @@
 #
 # Evaluating FAIR within the DataONE network of repositories
 
-- **Contributors**: Matthew B. Jones, Peter Slaughter
+- **Contributors**: Matthew B. Jones, Peter Slaughter, Ted Habermann
 - **Contact**: jones@nceas.ucsb.edu
 - **License**: [Apache 2](http://opensource.org/licenses/Apache-2.0)
 - [Package source code on Github](https://github.com/NCEAS/metadig-dataone-fair)
