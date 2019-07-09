@@ -18,8 +18,8 @@ overall within the DataONE network and within individual repositories.
 
 ## Getting started
 
-The analytical code is present in the top level plotFAIRMetrics.Rmd file.  The data
-file is not included in this repository but us accessible in the archived release on the KNB:
+The analytical code is present in the top level `plotFAIRMetrics.Rmd` file.  The data
+file is not included in this repository but is accessible in the archived release on the KNB:
 
 Matthew Jones, Peter Slaughter, and Ted Habermann. 2019. Quantifying FAIR: metadata improvement and 
 guidance in the DataONE repository network. Knowledge Network for Biocomplexity. [doi:10.5063/F1KP80GX](https://doi.org/doi:10.5063/F1KP80GX).
