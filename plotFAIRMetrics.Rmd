@@ -23,7 +23,8 @@ library(DT)
 FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
 
 ```{r load_data}
-fsr <- read_csv("FAIR-scores-ranked.csv")
+#fsr <- read_csv("FAIR-scores-ranked.csv")
+fsr <- read_csv("./FAIR-scores-eml.csv")
 scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
       mutate(scoreF = scoreFindable * 100.0) %>%
       mutate(scoreA = scoreAccessible * 100.0) %>%
@@ -32,9 +33,11 @@ scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), mo
       mutate(dialect = case_when(grepl("eml", formatId) ~ "EML", grepl("iso", formatId) ~ "ISO"))
 
 most_recent <- scores %>%
-  arrange(ym, seriesId, version) %>%
-  group_by(ym, seriesId) %>%
-  top_n(1, version)
+  #arrange(ym, seriesId, version) %>%
+  arrange(ym, sequenceId, dateUploaded) %>%
+  group_by(ym, sequenceId) %>%
+  top_n(1,dateUploaded)
+  #top_n(1, version)
 head(most_recent)
 ```
 
