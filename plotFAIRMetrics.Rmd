@@ -24,7 +24,7 @@ FAIR metrics scores are preliminary and are based on the draft, proposed approac
 
 ```{r load_data}
 #fsr <- read_csv("FAIR-scores-ranked.csv")
-fsr <- read_csv("./FAIR-scores-eml.csv")
+fsr <- read_csv("./FAIR-scores-partial.csv")
 scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
       mutate(scoreF = scoreFindable * 100.0) %>%
       mutate(scoreA = scoreAccessible * 100.0) %>%
