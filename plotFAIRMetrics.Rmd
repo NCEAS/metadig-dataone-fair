@@ -23,8 +23,21 @@ library(DT)
 FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
 
 ```{r load_data}
-#fsr <- read_csv("FAIR-scores-ranked.csv")
-fsr <- read_csv("./FAIR-v0.2.0-scores.csv")
+
+data_file <- "./FAIR-scores-v0.2.0.csv"
+if (!file.exists(data_file)) {
+    message("Reading data from KNB Repository...")
+    # Data file is available on the KNB Data Repository as part of data package:
+    data_url <- "https://knb.ecoinformatics.org/knb/d1/mn/v2/object/urn%3Auuid%3A2d586cef-47ba-40ee-8040-9e174d6e814c"
+    # NB: write_csv uses different CSV formatting, so checksums will not match the
+    # originally archived file; it would be better to first download and save the 
+    # CSV file, then parse it from disk, but its easier with one step
+    fsr <- read_csv(data_url)
+    write_csv(fsr, data_file)
+} else {
+    message("Reading from local file...")
+    fsr <- read_csv(data_file) 
+}
 scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
       mutate(scoreF = scoreFindable * 100.0) %>%
       mutate(scoreA = scoreAccessible * 100.0) %>%
@@ -33,11 +46,9 @@ scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), mo
       mutate(dialect = case_when(grepl("eml", formatId) ~ "EML", grepl("iso", formatId) ~ "ISO"))
 
 most_recent <- scores %>%
-  #arrange(ym, seriesId, version) %>%
   arrange(ym, sequenceId, dateUploaded) %>%
   group_by(ym, sequenceId) %>%
   top_n(1,dateUploaded)
-  #top_n(1, version)
 head(most_recent)
 ```
 
