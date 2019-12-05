@@ -1,0 +1,201 @@
+---
+title: "Quantifying FAIR"
+author: "Matt Jones"
+date: "5/10/2019"
+output: html_document
+---
+
+DataONE has consistently focused on interoperability among data repositories to enable seamless access to well-described data on the Earth and the environment.  Our existing services promote data discovery and access through harmonization of the diverse metadata specifications used across communities, and through our integrated data search portal and services.  In terms of the FAIR principles, we have done a good job at Findable and Accessible, while as a community we have placed less emphasis on Interoperable and Reusable.  We present new DataONE services for quantitatively assessing metadata completeness and effectiveness relative to the FAIR principles. The services produce guidance for FAIRness at both the level of an individual data set and trends through time for repository, user, and funder data collections. These analytical results regarding conformance to FAIR principles are preliminary and based on proposed quantitative assessment metrics for FAIR which will be changed with input from the community.  Thus, these results should not be viewed as conclusive about the data sets presented, but rather illustrate the types of quantitative comparisons that will be able to be made when the FAIR metrics at DataONE have been finalized.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+library(tidyverse)
+library(lubridate)
+library(DT)
+```
+
+# Load FAIR metrics scores
+
+FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
+
+```{r load_data}
+#fsr <- read_csv("FAIR-scores-ranked.csv")
+#fsr <- read_csv("./FAIR-scores-partial.csv")
+#fsr <- read_csv("./FAIR-v0.2.0-scores.csv")
+#fsr <- read_csv("./FAIR-scores-eml.csv")
+fsr <- read_csv("./FAIR-scores-all.csv")
+scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
+      mutate(scoreF = scoreFindable * 100.0) %>%
+      mutate(scoreA = scoreAccessible * 100.0) %>%
+      mutate(scoreI = scoreInteroperable * 100.0) %>%
+      mutate(scoreR = scoreReusable * 100.0) %>%
+      mutate(dialect = case_when(grepl("eml", formatId) ~ "EML", grepl("iso", formatId) ~ "ISO"))
+
+most_recent <- scores %>%
+  #arrange(ym, seriesId, version) %>%
+  #arrange(ym, sequenceId, dateUploaded) %>%
+  arrange(ym, dateUploaded) %>%
+  group_by(ym)
+  #top_n(1,dateUploaded)
+  #top_n(1, version)
+head(most_recent)
+```
+
+```{r count_standards}
+standards <- data.frame(table(most_recent$dialect)) %>%
+  rename(dialect=Var1, n=Freq)
+standards
+```
+
+## Overall FAIR asssessment
+
+Comparison across all repositories and across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
+
+```{r calc_cumulative_overall}
+score_cumulative <- most_recent %>%
+  arrange(ym) %>%
+  group_by(ym) %>%
+  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR)) %>%
+  mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
+  select(ym, f, a, i, r, fc, ac, ic, rc) %>%
+  gather(metric, mean, -ym)
+score_cumulative$metric <- factor(score_cumulative$metric,
+                                  levels=c("f", "a", "i", "r", "fc", "ac", "ic", "rc"),
+                                  labels=c("Findable", "Accessible", "Interoperable", "Reusable",
+                                           "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+score_monthly <- score_cumulative %>% filter(metric %in% c("Findable", "Accessible", "Interoperable", "Reusable"))
+score_cumulative_alone <- score_cumulative %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+```
+
+```{r plot_cumulative_overall}
+d1_colors <- c("#ff582d", "#c70a61", "#1a6379", "#60c5e4", "#ff582d", "#c70a61", "#1a6379", "#60c5e4")
+p <- ggplot(data=score_cumulative_alone, mapping=aes(x=ym, y=mean, color=metric)) +
+  geom_line() +
+  geom_point(size=1) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_colour_manual(values=d1_colors) +
+  scale_x_date(date_breaks="year", date_minor_breaks="months", labels=date_format("%Y")) +
+  xlab("Year") +
+  scale_y_continuous(limits=c(0,100)) +
+  ylab("Average FAIR Score") +
+  ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO metadata records"))
+ggsave("dataone-fair-scores-overall.png", width = 8, height = 4)
+p
+```
+
+While the cumulative averages are quite smooth, especially as the collections grow in size, the monthly variability is still quite high.  This graph shows the average FAIR scores for data sets updated in each month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
+
+```{r plot_monthly_overall}
+p <- ggplot(data=score_monthly, mapping=aes(x=ym, y=mean, color=metric)) +
+  geom_line() +
+  geom_point(size=1) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_colour_manual(values=d1_colors) +
+  scale_x_date(date_breaks="year", date_minor_breaks="months", labels=date_format("%Y")) +
+  xlab("Year") +
+  scale_y_continuous(limits=c(0,100)) +
+  ylab("Average FAIR Score") +
+  ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO metadata records"))
+ggsave("dataone-fair-scores-overall-monthly.png", width = 8, height = 4)
+p
+```
+
+## Assessment of EML and ISO metadata corpora
+
+Combined across all repositories, but split across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
+
+```{r calc_cumulative_by_dialect}
+score_dialect <- most_recent %>%
+  group_by(dialect, ym) %>%
+  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR)) %>%
+  mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
+  select(dialect, ym, f, a, i, r, fc, ac, ic, rc) %>%
+  gather(metric, mean, -dialect, -ym)
+score_dialect$metric <- factor(score_dialect$metric,
+                                  levels=c("f", "a", "i", "r", "fc", "ac", "ic", "rc"),
+                                  labels=c("Findable", "Accessible", "Interoperable", "Reusable",
+                                           "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+
+```
+
+```{r plot_cumulative_by_dialect}
+cum_dialect <- score_dialect %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+
+p <- ggplot(data=cum_dialect, mapping=aes(x=ym, y=mean, color=metric)) +
+  geom_line() +
+  geom_point(size=1) +
+  facet_grid(. ~ dialect) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_colour_manual(values=d1_colors) +
+  scale_x_date(date_breaks="2 years", date_minor_breaks="months", labels=date_format("%Y")) +
+  xlab("Year") +
+  scale_y_continuous(limits=c(0,100)) +
+  ylab("Average FAIR Score") +
+  ggtitle(paste0("DataONE: FAIR scores for ", format(standards$n[standards$dialect == "EML"], big.mark=","), " EML and ", format(standards$n[standards$dialect == "ISO"], big.mark=","), " ISO metadata records"))
+ggsave("dataone-fair-scores-dialect-horiz.png", width = 8, height = 4)
+p
+```
+
+
+## Assessment of repository collections
+
+Split results across selected DataONE repositories.  FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
+
+```{r calc_cumulative_by_repo}
+score_repo <- most_recent %>%
+  group_by(datasource, ym) %>%
+  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR)) %>%
+  mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
+  select(datasource, ym, f, a, i, r, fc, ac, ic, rc) %>%
+  gather(metric, mean, -datasource, -ym)
+score_repo$metric <- factor(score_repo$metric,
+                                  levels=c("f", "a", "i", "r", "fc", "ac", "ic", "rc"),
+                                  labels=c("Findable", "Accessible", "Interoperable", "Reusable",
+                                           "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+
+```
+
+```{r plot_cumulative_by_repo}
+cum_repo <- score_repo %>% 
+  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) %>%
+  filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:EDI", "urn:node:LTER", "urn:node:PISCO", "urn:node:SANPARKS")))
+
+cum_repo %>%
+  filter(metric %in% c("Cum. Findable")) %>%
+  group_by(datasource) %>%
+  summarize(n=n())
+
+p <- ggplot(data=cum_repo, mapping=aes(x=ym, y=mean, color=metric)) +
+  geom_line() +
+  geom_point(size=1) +
+  facet_wrap( ~ datasource, ncol=4) +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  scale_colour_manual(values=d1_colors) +
+  scale_x_date(date_breaks="5 years", date_minor_breaks="months", labels=date_format("%Y")) +
+  xlab("Year") +
+  scale_y_continuous(limits=c(0,100)) +
+  ylab("Average FAIR Score") +
+  ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
+ggsave("dataone-fair-scores-repos.png", width = 8, height = 4)
+p
+```
