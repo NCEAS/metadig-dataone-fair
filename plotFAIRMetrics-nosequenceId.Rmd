@@ -17,6 +17,7 @@ library(scales)
 library(tidyverse)
 library(lubridate)
 library(DT)
+library(flowers)
 ```
 
 # Load FAIR metrics scores
@@ -71,6 +72,21 @@ score_cumulative$metric <- factor(score_cumulative$metric,
                                            "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
 score_monthly <- score_cumulative %>% filter(metric %in% c("Findable", "Accessible", "Interoperable", "Reusable"))
 score_cumulative_alone <- score_cumulative %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+```
+
+```{r flower_cumulative_overall}
+fair_flower <- function(df, title = NA, filename = NA) {
+  flower_df <- df %>% 
+    group_by(metric) %>% 
+    filter(ym == max(ym)) %>% 
+    rename(score=mean) %>% 
+    separate(col=metric, into=c(NA, "name_flower"), sep=" ") %>% 
+    mutate(weight = 1, name_supra = NA, goal = name_flower) 
+  flower_colors <- c("#c70a61", "#ff582d", "#1a6379", "#60c5e4")
+  plot_obj <- plot_flower(flower_df, colors = flower_colors, fixed_colors = TRUE, filename = filename, title = title)
+  return(plot_obj)
+}
+plot_obj <- fair_flower(score_cumulative_alone, title = "DataONE Overall", filename="dataone-fair-flower.png")
 ```
 
 ```{r plot_cumulative_overall}
@@ -136,8 +152,15 @@ score_dialect$metric <- factor(score_dialect$metric,
 
 ```
 
-```{r plot_cumulative_by_dialect}
+```{r flower_cumulative_by_dialect}
 cum_dialect <- score_dialect %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+
+cum_dialect %>%
+  split(.$dialect) %>% 
+  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("dataone-fair-flower-", .y, ".png") ))
+```
+
+```{r plot_cumulative_by_dialect}
 
 p <- ggplot(data=cum_dialect, mapping=aes(x=ym, y=mean, color=metric)) +
   geom_line() +
@@ -174,12 +197,21 @@ score_repo$metric <- factor(score_repo$metric,
 
 ```
 
-```{r plot_cumulative_by_repo, fig.height=10, fig.width=7}
+```{r flower_cumulative_by_repo}
 cum_repo <- score_repo %>% 
   filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) %>% 
   filter(!datasource %in% (c("urn:node:mnTestNKN", "urn:node:ONEShare_test"))) %>% 
   mutate(repo = stringr::str_remove(datasource, pattern="urn:node:"))
   #filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:EDI", "urn:node:LTER", "urn:node:PISCO", "urn:node:SANPARKS")))
+
+cum_repo %>%
+  split(.$repo) %>% 
+  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("dataone-fair-flower-", .y, ".png") ))
+
+```
+
+
+```{r plot_cumulative_by_repo, fig.height=10, fig.width=7}
 
 cr <- cum_repo %>%
   filter(metric %in% c("Cum. Findable")) %>%
@@ -233,7 +265,7 @@ p
 
 Zooming in for a couple of selected repositories shows the temporal trends.
 
-```{r plot_monthly_by_repo, fig.height=5, fig.width=7}
+```{r plot_monthly_by_repo_select, fig.height=5, fig.width=7}
 repo_monthly_selected <- repo_monthly %>% 
   filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:ESS_DIVE", "urn:node:LTER")))
 
