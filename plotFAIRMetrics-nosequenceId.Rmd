@@ -86,7 +86,7 @@ fair_flower <- function(df, title = NA, filename = NA) {
   plot_obj <- plot_flower(flower_df, colors = flower_colors, fixed_colors = TRUE, filename = filename, title = title)
   return(plot_obj)
 }
-plot_obj <- fair_flower(score_cumulative_alone, title = "DataONE Overall", filename="dataone-fair-flower.png")
+plot_obj <- fair_flower(score_cumulative_alone, title = "DataONE Overall", filename="figures/dataone-fair-flower.png")
 ```
 
 ```{r plot_cumulative_overall}
@@ -112,7 +112,7 @@ p <- ggplot(data=score_cumulative_alone, mapping=aes(x=ym, y=mean, color=metric)
   scale_y_continuous(limits=c(0,100)) +
   ylab("Cumulative Average FAIR Score (%)") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO metadata records"))
-ggsave("dataone-fair-scores-overall.png", width = 8, height = 4)
+ggsave("figures/dataone-fair-scores-overall.png", width = 8, height = 4)
 p
 ```
 
@@ -130,7 +130,7 @@ p <- ggplot(data=score_monthly, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score (%)") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO metadata records"))
-ggsave("dataone-fair-scores-overall-monthly.png", width = 8, height = 4)
+ggsave("figures/dataone-fair-scores-overall-monthly.png", width = 8, height = 4)
 p
 ```
 
@@ -157,7 +157,7 @@ cum_dialect <- score_dialect %>% filter(metric %in% c("Cum. Findable", "Cum. Acc
 
 cum_dialect %>%
   split(.$dialect) %>% 
-  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("dataone-fair-flower-", .y, ".png") ))
+  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
 ```
 
 ```{r plot_cumulative_by_dialect}
@@ -174,7 +174,7 @@ p <- ggplot(data=cum_dialect, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Cumulative Average FAIR Score (%)") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(standards$n[standards$dialect == "EML"], big.mark=","), " EML and ", format(standards$n[standards$dialect == "ISO"], big.mark=","), " ISO metadata records"))
-ggsave("dataone-fair-scores-dialect-horiz.png", width = 8, height = 4)
+ggsave("figures/dataone-fair-scores-dialect-horiz.png", width = 8, height = 4)
 p
 ```
 
@@ -206,7 +206,7 @@ cum_repo <- score_repo %>%
 
 cum_repo %>%
   split(.$repo) %>% 
-  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("dataone-fair-flower-", .y, ".png") ))
+  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
 
 ```
 
@@ -230,7 +230,7 @@ p <- ggplot(data=cum_repo, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Cumulative Average FAIR Score (%)") +
   ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
-ggsave("dataone-fair-scores-repos.png", width = 8, height = 10)
+ggsave("figures/dataone-fair-scores-repos.png", width = 8, height = 10)
 p
 ```
 
@@ -259,7 +259,7 @@ p <- ggplot(data=repo_monthly, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score (%)") +
   ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
-ggsave("dataone-fair-scores-repos-monthly.png", width = 8, height = 15)
+ggsave("figures/dataone-fair-scores-repos-monthly.png", width = 8, height = 15)
 p
 ```
 
@@ -281,6 +281,6 @@ p <- ggplot(data=repo_monthly_selected, mapping=aes(x=ym, y=mean, color=metric))
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score (%)") +
   ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
-ggsave("dataone-fair-scores-repos-monthly-zoom.png", width = 8, height = 8)
+ggsave("figures/dataone-fair-scores-repos-monthly-zoom.png", width = 8, height = 8)
 p
 ```
