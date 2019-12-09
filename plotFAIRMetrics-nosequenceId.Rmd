@@ -17,8 +17,8 @@ library(scales)
 library(tidyverse)
 library(lubridate)
 library(DT)
-library(flowers)
-library(patchwork)
+library(flowers) # install_github("mbjones/flowers")
+library(patchwork)  
 ```
 
 # Load FAIR metrics scores
@@ -212,9 +212,6 @@ cum_repo <- score_repo %>%
 repo_flowers <- cum_repo %>%
   split(.$repo) %>% 
   purrr::imodify( ~fair_flower(df = as.data.frame(.x), title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
-# library(gridExtra)
-# flower_page <- arrangeGrob(repo_flowers, ncol=5, nrow=8)
-# flower_page
 ```
 
 ```{r wrap_repo_plots, fig.width=12, fig.height=12}
