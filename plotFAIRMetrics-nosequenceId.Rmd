@@ -18,6 +18,7 @@ library(tidyverse)
 library(lubridate)
 library(DT)
 library(flowers)
+library(patchwork)
 ```
 
 # Load FAIR metrics scores
@@ -89,7 +90,7 @@ fair_flower <- function(df, title = NA, filename = NA) {
 plot_obj <- fair_flower(score_cumulative_alone, title = "DataONE Overall", filename="figures/dataone-fair-flower.png")
 ```
 
-```{r plot_cumulative_overall}
+```{r plot_cumulative_overall, fig.width=10}
 d1_colors <- c("#ff582d", "#c70a61", "#1a6379", "#60c5e4", "#ff582d", "#c70a61", "#1a6379", "#60c5e4")
 d1_theme <- theme_bw() +
   theme(panel.border = element_blank(),
@@ -113,7 +114,7 @@ p <- ggplot(data=score_cumulative_alone, mapping=aes(x=ym, y=mean, color=metric)
   ylab("Cumulative Average FAIR Score (%)") +
   ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO metadata records"))
 ggsave("figures/dataone-fair-scores-overall.png", width = 8, height = 4)
-p
+plot_obj + p
 ```
 
 While the cumulative averages are quite smooth, especially as the collections grow in size, the monthly variability is still quite high.  This graph shows the average FAIR scores for data sets updated in each month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
@@ -152,12 +153,17 @@ score_dialect$metric <- factor(score_dialect$metric,
 
 ```
 
-```{r flower_cumulative_by_dialect}
-cum_dialect <- score_dialect %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+```{r flower_cumulative_by_dialect, fig.width=8}
+cum_dialect <- score_dialect %>% 
+  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
 
-cum_dialect %>%
-  split(.$dialect) %>% 
-  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
+plots <- cum_dialect %>%
+  split(.$dialect) #%>% 
+  #purrr::imodify( ~fair_flower(df = .x, title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
+p_eml <- fair_flower(df = plots[[1]], title = "EML", filename = paste0("figures/dataone-fair-flower-EML.png"))
+p_iso <- fair_flower(df = plots[[2]], title = "ISO", filename = paste0("figures/dataone-fair-flower-ISO.png"))
+p_eml   + theme(title = element_text(size = rel(4))) + 
+  p_iso + theme(title = element_text(size = rel(4)))
 ```
 
 ```{r plot_cumulative_by_dialect}
@@ -197,17 +203,22 @@ score_repo$metric <- factor(score_repo$metric,
 
 ```
 
-```{r flower_cumulative_by_repo}
+```{r flower_cumulative_by_repo, fig.width=4}
 cum_repo <- score_repo %>% 
   filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) %>% 
   filter(!datasource %in% (c("urn:node:mnTestNKN", "urn:node:ONEShare_test"))) %>% 
   mutate(repo = stringr::str_remove(datasource, pattern="urn:node:"))
-  #filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:EDI", "urn:node:LTER", "urn:node:PISCO", "urn:node:SANPARKS")))
-
-cum_repo %>%
+  
+repo_flowers <- cum_repo %>%
   split(.$repo) %>% 
-  purrr::iwalk( ~fair_flower(df = .x, title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
+  purrr::imodify( ~fair_flower(df = as.data.frame(.x), title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
+# library(gridExtra)
+# flower_page <- arrangeGrob(repo_flowers, ncol=5, nrow=8)
+# flower_page
+```
 
+```{r wrap_repo_plots, fig.width=12, fig.height=12}
+wrap_plots(repo_flowers, ncol=5)
 ```
 
 
