@@ -78,8 +78,8 @@ process_reports <- function(file_chunk) {
 
 par_process <- function(suite_name) {
   file_list_full <- list.files(path = "reports", pattern = "\\.xml")
-  file_list <- sample(file_list_full, size=100, replace=F)
-  file_chunks <- slice(file_list, 5)
+  #file_list <- sample(file_list_full, size=100, replace=F)
+  file_chunks <- slice(file_list_full, 200)
 
   # Time it serially for a benchmark
   # system.time({
@@ -88,7 +88,7 @@ par_process <- function(suite_name) {
 
   # Time it in parallel and compare results
   timedata = data.frame()
-  for (numCores in (c(20))) {
+  for (numCores in (c(50))) {
     print(paste0("Timing cores: ", numCores))
     t <- system.time({
       #output_parallel <- mclapply(file_chunks, process_reports, mc.cores = numCores)
