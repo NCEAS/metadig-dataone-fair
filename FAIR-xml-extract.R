@@ -3,6 +3,7 @@ library(dplyr)
 library(purrr)
 library(parallel)
 library(ggplot2)
+library(pbmcapply)
 
 extract_value <- function(nodeset, xpath) {
   node <- xml_find_all(nodeset, xpath)
@@ -69,31 +70,14 @@ slice <- function(input, by=2) {
   lmap(tt, function(x) x[!is.na(x)])
 }
 
-prof <- function(file_list, sizes) {
-  times <- c()
-  for (size in sizes) {
-    print(paste0("Processing size: ", size))
-    current_list <- sample(file_list, size=size, replace=F)
-    runs_time <- system.time(runs <- map_df(.x = current_list, .f = extract_run))
-    checks_time <- system.time(checks <- map_df(.x = current_list, .f = extract_checks))
-    elapsed <- runs_time[[3]] + checks_time[[3]]
-    times <- append(times, elapsed)
-    print(paste0("Size / Elapsed: ", size, " / ", elapsed))
-  }
-  return(times)
-}
-sizes_1 <- c(10, 25, 50, 100, 200, 300, 400, 500)
-runtimes_1 <- prof(file_list_full, sizes)
-
 process_reports <- function(file_chunk) {
   runs <- map_df(.x = file_chunk, .f = extract_run)
   checks <- map_df(.x = file_chunk, .f = extract_checks)
   return(list(runs,checks))
 }
 
-
-par_process <- function() {
-  #file_list_full <- list.files(path = "reports", pattern = "\\.xml")
+par_process <- function(suite_name) {
+  file_list_full <- list.files(path = "reports", pattern = "\\.xml")
   file_list <- sample(file_list_full, size=100, replace=F)
   file_chunks <- slice(file_list, 5)
 
@@ -107,7 +91,8 @@ par_process <- function() {
   for (numCores in (c(20))) {
     print(paste0("Timing cores: ", numCores))
     t <- system.time({
-      output_parallel <- mclapply(file_chunks, process_reports, mc.cores = numCores)
+      #output_parallel <- mclapply(file_chunks, process_reports, mc.cores = numCores)
+      output_parallel <- pbmclapply(file_chunks, process_reports, mc.cores = numCores)
       runs <- bind_rows(map(output_parallel, 1))
       checks <- bind_rows(map(output_parallel, 2))
     })
@@ -115,9 +100,14 @@ par_process <- function() {
     print(as.data.frame(timings))
     timedata <- bind_rows(timedata, timings)
   }
+  write.csv(runs, paste0(suite_name, "-runs.csv"))
+  write.csv(checks, paste0(suite_name, "-checks.csv"))
+  return(list(runs=runs, checks=checks))
 }
 
-par_process()
+suite_name <- "fair-2.1"
+runs_and_checks <- par_process(suite_name)
+save(runs_and_checks, file = paste0(suite_name, "-runs_and_checks.rda"))
 
 # ggplot(timedata_all, mapping = aes(x = numCores, y = elapsed)) +
 #   geom_point() +
@@ -125,4 +115,3 @@ par_process()
 #   facet_wrap(facets = ~chunksize, ncol = 5) +
 #   theme_bw()
 #geom_point(mapping = aes(y=user+system))
-
