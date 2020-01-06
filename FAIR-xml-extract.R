@@ -79,35 +79,42 @@ process_reports <- function(file_chunk) {
 par_process <- function(suite_name) {
   file_list_full <- list.files(path = "reports", pattern = "\\.xml")
   #file_list <- sample(file_list_full, size=100, replace=F)
-  file_chunks <- slice(file_list_full, 200)
+  slices <- c(seq(1300, 3900, 100), 4026)
+  slice_min <- 1201
+  for (slice_max in slices) {
+    print(paste0("Processing slices: ", slice_min, " - ", slice_max))
+    file_chunks <- slice(file_list_full, 200)[slice_min:slice_max]
 
-  # Time it serially for a benchmark
-  # system.time({
-  #   output_serial <- process_reports(file_list)
-  # })
+    # Time it serially for a benchmark
+    # system.time({
+    #   output_serial <- process_reports(file_list)
+    # })
 
-  # Time it in parallel and compare results
-  timedata = data.frame()
-  for (numCores in (c(50))) {
-    print(paste0("Timing cores: ", numCores))
-    t <- system.time({
-      #output_parallel <- mclapply(file_chunks, process_reports, mc.cores = numCores)
-      output_parallel <- pbmclapply(file_chunks, process_reports, mc.cores = numCores)
-      runs <- bind_rows(map(output_parallel, 1))
-      checks <- bind_rows(map(output_parallel, 2))
-    })
-    timings <- list(numCores=numCores, user=t[[1]]+t[[4]], system=t[[2]]+t[[5]], elapsed=t[[3]])
-    print(as.data.frame(timings))
-    timedata <- bind_rows(timedata, timings)
+    # Time it in parallel and compare results
+    timedata = data.frame()
+    for (numCores in (c(50))) {
+      print(paste0("Using cores: ", numCores))
+      t <- system.time({
+        output_parallel <- mclapply(file_chunks, process_reports, mc.cores = numCores)
+        #output_parallel <- pbmclapply(file_chunks, process_reports, mc.cores = numCores)
+        runs <- bind_rows(map(output_parallel, 1))
+        checks <- bind_rows(map(output_parallel, 2))
+      })
+      timings <- list(numCores=numCores, user=t[[1]]+t[[4]], system=t[[2]]+t[[5]], elapsed=t[[3]])
+      print(as.data.frame(timings))
+      timedata <- bind_rows(timedata, timings)
+    }
+    write.csv(runs, paste0(suite_name, "-runs-", slice_max, ".csv"))
+    write.csv(checks, paste0(suite_name, "-checks-", slice_max, ".csv"))
+    runs_and_checks <- list(runs=runs, checks=checks)
+    save(runs_and_checks, file = paste0(suite_name, "-runs-and-checks-", slice_max, ".rda"))
+    print(paste0("Finished slice: ", slice_max))
+    slice_min <- slice_max + 1
   }
-  write.csv(runs, paste0(suite_name, "-runs.csv"))
-  write.csv(checks, paste0(suite_name, "-checks.csv"))
-  return(list(runs=runs, checks=checks))
 }
 
-suite_name <- "fair-2.1"
-runs_and_checks <- par_process(suite_name)
-save(runs_and_checks, file = paste0(suite_name, "-runs_and_checks.rda"))
+suite_name <- "check-data/fair-2.1"
+par_process(suite_name)
 
 # ggplot(timedata_all, mapping = aes(x = numCores, y = elapsed)) +
 #   geom_point() +
