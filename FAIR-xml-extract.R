@@ -79,11 +79,22 @@ process_reports <- function(file_chunk) {
 par_process <- function(suite_name) {
   file_list_full <- list.files(path = "reports", pattern = "\\.xml")
   #file_list <- sample(file_list_full, size=100, replace=F)
-  slices <- c(seq(1300, 3900, 100), 4026)
-  slice_min <- 1201
+  # problem slices: 2201-2300; problem is empty file named c07d3dc9-754b-458d-824f-38bafb83424c.xml; removing it to proceed
+  slices <- c(seq(100, 3900, 100), 4026)
+  slice_min <- 1
   for (slice_max in slices) {
     print(paste0("Processing slices: ", slice_min, " - ", slice_max))
     file_chunks <- slice(file_list_full, 200)[slice_min:slice_max]
+
+    # Check if the bad file (empty) is in each file chunk, and remove it if so
+    bad_file <- "c07d3dc9-754b-458d-824f-38bafb83424cm.xml"
+    chunk_index <- which(grepl(bad_file, file_chunks))
+    if (length(chunk_index) > 0) {
+      x <- file_chunks[[chunk_index]]
+      x2 <- x[!x %in% bad_file]
+      file_chunks[[chunk_index]] <- x2
+      print(paste0("Length of modified chunk: ", length(file_chunks[[chunk_index]])))
+    }
 
     # Time it serially for a benchmark
     # system.time({
