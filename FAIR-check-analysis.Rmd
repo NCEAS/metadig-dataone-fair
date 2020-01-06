@@ -1,0 +1,62 @@
+---
+title: "FAIR Check Analysis"
+author: "Matt Jones"
+date: "1/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_libraries, echo=FALSE}
+library(tidyverse)
+```
+
+```{r load_check_data, eval=FALSE, echo=FALSE}
+load_check_data <- function() {
+  check_data <- "check-data"
+  run_files <- list.files(path = check_data, pattern = "fair-2.1-runs-.*\\.csv$")
+  check_files <- list.files(path = check_data, pattern = "fair-2.1-checks-.*\\.csv$")
+
+  run_col_types <- cols(
+    X1="-",
+    run_id="c",
+    obj_id="c",
+    series_id="c",
+    suite_id="c",
+    run_status="c",
+    origin_mn="c",
+    date_uplaoded="c",
+    format_id="c",
+    obsoletes="c",
+    filename="c"
+  )
+  runs <- paste0(check_data, "/", run_files) %>%
+    map_df(read_csv, col_names = TRUE, col_types = run_col_types)
+
+  checks_joined <- paste0(check_data, "/", check_files) %>%
+    map_df(read_csv, col_names = TRUE) %>%
+    select(-X1) %>%
+    left_join(runs, by = "run_id")
+}
+
+checks_joined <- load_check_data()
+```
+
+# Summarize check data
+
+```{r summary}
+checks_subset <- checks_joined %>% 
+  filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE"))
+
+overall_status <- checks_subset %>% 
+  group_by(origin_mn, check_level) %>% 
+  summarize(n=n())
+
+ggplot(checks_subset, aes(x=check_level, fill=check_status)) + 
+  geom_bar(position="fill") +
+  theme_bw() +
+  facet_wrap(facets = origin_mn ~ check_type, ncol = 4)
+```
+
