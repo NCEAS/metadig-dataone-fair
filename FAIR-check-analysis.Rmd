@@ -16,6 +16,16 @@ library(tidyverse)
 ```{r load_check_data, eval=FALSE, echo=FALSE}
 load_check_data <- function() {
   check_data <- "check-data"
+  checks_joined_file <- paste0(check_data, "/fair-2.1-checks-joined.rda")
+  runs_file <- paste0(check_data, "/fair-2.1-runs.rda")
+  if (file.exists(checks_joined_file) && file.exists(runs_file)) {
+    loaded <- load(checks_joined_file))
+    loaded <- load(runs_file))
+    return(list(runs=runs, checks_joined=checks_joined))
+  }
+  
+  # If the RDA file doesn't exist, build it from the CSV files
+  
   run_files <- list.files(path = check_data, pattern = "fair-2.1-runs-.*\\.csv$")
   check_files <- list.files(path = check_data, pattern = "fair-2.1-checks-.*\\.csv$")
 
@@ -35,14 +45,32 @@ load_check_data <- function() {
   runs <- paste0(check_data, "/", run_files) %>%
     map_df(read_csv, col_names = TRUE, col_types = run_col_types) %>% 
     rename(pid=obj_id)
+  save(runs, file = runs_file)
 
-  checks_joined <- paste0(check_data, "/", check_files) %>%
+  checks <- paste0(check_data, "/", check_files) %>%
     map_df(read_csv, col_names = TRUE) %>%
-    select(-X1) %>%
+    select(-X1)
+    mutate(check_type = factor(check_type, levels = c(F="Findable", A="Accessible", I="Interoperable", R="Reusable"))) %>% 
+    mutate(check_level = factor(check_level, levels = c(R="REQUIRED", O="OPTIONAL")))
+
+  checks_list <- checks %>% 
+    select(check_id, check_name, check_type, check_level) %>% 
+    group_by(check_id) %>% 
+    dplyr::slice(1) %>% 
+    arrange(check_type, check_level, check_name)
+  check_names_factor <- factor(levels = checks_list$check_name)
+  
+  checks <- mutate(checks, check_name = factor(check_name, levels(check_names_factor)))
+    
+  checks_joined <- checks %>% 
     left_join(runs, by = "run_id")
+  
+  save(checks_joined, file = checks_joined_file)
+  return(list(runs=runs, checks_joined=checks_joined))
 }
 
-checks_joined <- load_check_data()
+df_list <- load_check_data()
+
 ```
 
 # Summarize check data
@@ -50,22 +78,57 @@ checks_joined <- load_check_data()
 NB: This is currently for just a subset of nodes!
 
 ```{r summary}
+status_palette <- c("grey", "salmon2", "seagreen4")
+
 checks_subset <- checks_joined %>% 
-  filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE"))
+  filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE", "urn:node:NCEI"))
 
 overall_status <- checks_subset %>% 
   group_by(origin_mn, check_level) %>% 
   summarize(n=n())
 
-ggplot(checks_subset, aes(x=check_level, fill=check_status)) + 
+ggplot(checks_subset, aes(x=forcats::fct_rev(check_level), fill=check_status)) + 
   geom_bar(position="fill") +
   theme_bw() +
-  facet_wrap(facets = origin_mn ~ check_type, ncol = 4)
-
-#checks_current <- checks_subset %>% 
-#  filter
+  scale_fill_manual(values = status_palette) +
+  xlab(element_blank()) +
+  ylab("Proportion") +
+  facet_grid(rows = vars(origin_mn), cols = vars(check_type))
+  #facet_wrap(facets = origin_mn ~ check_type, ncol = 4)
+ggsave("figures/dataone-fair-nodes-summary.png", height=10, width=10)
 ```
 
+## NCEI
+
+```{r ncei_subset, echo=FALSE}
+runs_temp_file <- paste0(check_data, "/fair-2.1-runs-temp.rda")
+if (file.exists(runs_temp_file)) {
+  loaded <- load(runs_temp_file)
+}
+ncei_runs <- runs_temp %>% 
+  filter(origin_mn %in% c("urn:node:NCEI"), ser_version > 1)
+
+ncei_checks_current <- ncei_runs %>% 
+  filter(is.na(obsoleted_by), !is.na(ser_version)) %>% 
+  inner_join(checks, by = "run_id") %>% 
+  arrange(check_type)
+```
+
+This is a sample of the NCEI metadata corpus.  I selected only the most recent version of each metadata document from NCEI (currently `r nrow(ncei_runs)` documents), and then calculated the
+proportion of documents for which each of the FAIR checks pass, as follows:
+
+```{r ncei_breakdown, fig.width="20", echo=FALSE}
+ggplot(ncei_checks_current, aes(x=forcats::fct_rev(check_name), fill=check_status)) + 
+  geom_bar(position="fill") +
+  theme_bw() +
+  #theme(title=element_text(paste0("NCEI, subsample current versions, ", nrow(ncei_runs)))) +
+  scale_fill_manual(values = status_palette) +
+  facet_wrap(facets = ~ check_type, ncol = 4) +
+  xlab("Check Name") +
+  ylab("Proportion") +
+  coord_flip()
+ggsave("figures/ncei-fair-sample.png", height=10, width=10)
+```
 
 
 
