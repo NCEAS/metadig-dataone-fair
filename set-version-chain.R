@@ -62,14 +62,20 @@ set_version_chain <- function(df, pid_target) {
 
 runs_temp <- mutate(runs, obsoleted_by = NA, ser_version = NA)
 
-i <- 1
-row_slice <- runs_temp[11001:11100,]$pid
-pb <- progressBar(max = length(row_slice), style = "ETA")
-for (pid in row_slice) {
-    runs_temp <- set_version_chain(runs_temp, pid)
-    setTxtProgressBar(pb, i)
-    i <- i+1
+min_runs <- 1001
+for (max_runs in c(seq(10000, nrow(runs_temp), 10000), nrow(runs_temp))) {
+    print(paste0("Processing runs: ", min_runs, " - ", max_runs))
+
+    i <- 1
+    row_slice <- runs_temp[min_runs:max_runs,]$pid
+    pb <- progressBar(max = length(row_slice), style = "ETA")
+    for (pid in row_slice) {
+        runs_temp <- set_version_chain(runs_temp, pid)
+        setTxtProgressBar(pb, i)
+        i <- i+1
+    }
+    close(pb)
+    min_runs <- max_runs +1
 }
-close(pb)
 
 
