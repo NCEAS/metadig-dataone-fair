@@ -16,11 +16,11 @@ library(tidyverse)
 ```{r load_check_data, eval=FALSE, echo=FALSE}
 load_check_data <- function() {
   check_data <- "check-data"
-  checks_joined_file <- paste0(check_data, "/fair-2.1-checks-joined.rda")
-  runs_file <- paste0(check_data, "/fair-2.1-runs.rda")
-  if (file.exists(checks_joined_file) && file.exists(runs_file)) {
-    loaded <- load(checks_joined_file))
-    loaded <- load(runs_file))
+  checks_joined_file <- paste0(check_data, "/fair-0.2.2-checks-joined.rda")
+  runs_file <- paste0(check_data, "/fair-0.2.2-runs.rda")
+  if(file.exists(checks_joined_file) && file.exists(runs_file)) {
+    loaded <- load(checks_joined_file)
+    loaded <- load(runs_file)
     return(list(runs=runs, checks_joined=checks_joined))
   }
   
@@ -49,7 +49,7 @@ load_check_data <- function() {
 
   checks <- paste0(check_data, "/", check_files) %>%
     map_df(read_csv, col_names = TRUE) %>%
-    select(-X1)
+    select(-X1) %>% 
     mutate(check_type = factor(check_type, levels = c(F="Findable", A="Accessible", I="Interoperable", R="Reusable"))) %>% 
     mutate(check_level = factor(check_level, levels = c(R="REQUIRED", O="OPTIONAL")))
 
