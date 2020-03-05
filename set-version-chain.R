@@ -4,9 +4,6 @@ library(pbmcapply)
 set_version_chain <- function(df, pid_target) {
     #print(paste0("Starting pid: ", pid_target))
     row <- filter(df, pid==pid_target)
-    # if (!is.na(row$obsoleted_by)) {
-    #     next
-    # }
     pids <- c(pid_target)
     obsoletes_pid <- row$obsoletes
 
@@ -62,8 +59,17 @@ set_version_chain <- function(df, pid_target) {
 
 runs_temp <- mutate(runs, obsoleted_by = NA, ser_version = NA)
 
-min_runs <- 1001
-for (max_runs in c(seq(10000, nrow(runs_temp), 10000), nrow(runs_temp))) {
+# Determnine the next row to process based on which has ser_version == NA
+next_run_id <- runs_temp %>%
+    filter(is.na(ser_version)) %>%
+    select(run_id) %>%
+    summarize(run_id = dplyr::first(run_id)) %>%
+    as.character()
+min_runs <- as.numeric(row.names(runs_temp)[which(runs_temp$run_id == next_run_id)])
+#min_runs <- 1001
+first_max <- floor(min_runs/10000)*10000 + 10000
+
+for (max_runs in c(seq(first_max,  nrow(runs_temp), 10000), nrow(runs_temp))) {
     print(paste0("Processing runs: ", min_runs, " - ", max_runs))
 
     i <- 1
@@ -75,6 +81,7 @@ for (max_runs in c(seq(10000, nrow(runs_temp), 10000), nrow(runs_temp))) {
         i <- i+1
     }
     close(pb)
+    save(runs_temp, file=paste0("check-data/runs_temp_", max_runs, ".rda"))
     min_runs <- max_runs +1
 }
 
