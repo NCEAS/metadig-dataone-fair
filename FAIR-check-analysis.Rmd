@@ -70,7 +70,8 @@ load_check_data <- function() {
 }
 
 df_list <- load_check_data()
-
+runs <- df_list[[1]]
+checks_joined <- df_list[[2]]
 ```
 
 # Summarize check data
@@ -101,7 +102,8 @@ ggsave("figures/dataone-fair-nodes-summary.png", height=10, width=10)
 ## NCEI
 
 ```{r ncei_subset, echo=FALSE}
-runs_temp_file <- paste0(check_data, "/fair-2.1-runs-temp.rda")
+check_data <- "check-data"
+runs_temp_file <- paste0(check_data, "/fair-0.2.2-runs-versioned.rda")
 if (file.exists(runs_temp_file)) {
   loaded <- load(runs_temp_file)
 }
@@ -110,7 +112,7 @@ ncei_runs <- runs_temp %>%
 
 ncei_checks_current <- ncei_runs %>% 
   filter(is.na(obsoleted_by), !is.na(ser_version)) %>% 
-  inner_join(checks, by = "run_id") %>% 
+  inner_join(checks_joined, by = "run_id") %>% 
   arrange(check_type)
 ```
 
