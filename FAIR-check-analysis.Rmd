@@ -99,7 +99,7 @@ ggplot(checks_subset, aes(x=forcats::fct_rev(check_level), fill=check_status)) +
 ggsave("figures/dataone-fair-nodes-summary.png", height=10, width=10)
 ```
 
-## NCEI
+## Check success breakdown
 
 ```{r ncei_subset, echo=FALSE}
 check_data <- "check-data"
@@ -107,29 +107,29 @@ runs_temp_file <- paste0(check_data, "/fair-0.2.2-runs-versioned.rda")
 if (file.exists(runs_temp_file)) {
   loaded <- load(runs_temp_file)
 }
-ncei_runs <- runs_temp %>% 
-  filter(origin_mn %in% c("urn:node:NCEI"), ser_version > 1)
-
-ncei_checks_current <- ncei_runs %>% 
-  filter(is.na(obsoleted_by), !is.na(ser_version)) %>% 
-  inner_join(checks_joined, by = "run_id") %>% 
-  arrange(check_type)
 ```
 
 This is a sample of the NCEI metadata corpus.  I selected only the most recent version of each metadata document from NCEI (currently `r nrow(ncei_runs)` documents), and then calculated the
 proportion of documents for which each of the FAIR checks pass, as follows:
 
 ```{r ncei_breakdown, fig.width="20", echo=FALSE}
-ggplot(ncei_checks_current, aes(x=forcats::fct_rev(check_name), fill=check_status)) + 
+node <- 'ARCTIC'
+checks_current <- runs_temp %>% 
+  filter(origin_mn %in% c(paste0("urn:node:", node)), ser_version > 1) %>% 
+  filter(is.na(obsoleted_by), !is.na(ser_version)) %>% 
+  inner_join(checks_joined, by = "run_id") %>% 
+  arrange(check_type)
+
+ggplot(checks_current, aes(x=forcats::fct_rev(check_name), fill=check_status)) + 
   geom_bar(position="fill") +
   theme_bw() +
-  #theme(title=element_text(paste0("NCEI, subsample current versions, ", nrow(ncei_runs)))) +
+  ggtitle(node) +
   scale_fill_manual(values = status_palette) +
   facet_wrap(facets = ~ check_type, ncol = 4) +
   xlab("Check Name") +
   ylab("Proportion") +
   coord_flip()
-ggsave("figures/ncei-fair-sample.png", height=10, width=10)
+ggsave(paste0("figures/fair-breakdown-", node, ".png"), height=10, width=10)
 ```
 
 
