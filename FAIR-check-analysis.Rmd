@@ -11,9 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load_libraries, echo=FALSE}
 library(tidyverse)
+library(purr)
 ```
 
 ```{r load_check_data, eval=FALSE, echo=FALSE}
+fair_suite <- '0.2.2'
 load_check_data <- function() {
   check_data <- "check-data"
   checks_joined_file <- paste0(check_data, "/fair-0.2.2-checks-joined.rda")
@@ -99,37 +101,49 @@ ggplot(checks_subset, aes(x=forcats::fct_rev(check_level), fill=check_status)) +
 ggsave("figures/dataone-fair-nodes-summary.png", height=10, width=10)
 ```
 
-## Check success breakdown
+## Plot FAIR suite results by check and repository
 
-```{r ncei_subset, echo=FALSE}
+```{r load_versioned_data, echo=FALSE}
 check_data <- "check-data"
 runs_temp_file <- paste0(check_data, "/fair-0.2.2-runs-versioned.rda")
 if (file.exists(runs_temp_file)) {
   loaded <- load(runs_temp_file)
+  runs_versioned <- runs_temp
+  rm(runs_temp)
 }
 ```
 
-This is a sample of the NCEI metadata corpus.  I selected only the most recent version of each metadata document from NCEI (currently `r nrow(ncei_runs)` documents), and then calculated the
-proportion of documents for which each of the FAIR checks pass, as follows:
+To summaize the current status of each repository collection, I selected only the most recent version of each metadata document from each version chain, and then calculated the proportion of documents for which each of the FAIR `r fair_suite` checks pass. Plots are created with results grouped by the FAIR type of the check and the reposistory.
 
-```{r ncei_breakdown, fig.width="20", echo=FALSE}
-node <- 'ARCTIC'
-checks_current <- runs_temp %>% 
-  filter(origin_mn %in% c(paste0("urn:node:", node)), ser_version > 1) %>% 
+```{r fair_breakdown_by_node, fig.width="20", echo=FALSE}
+
+plot_suite_results <- function(df, node = NA, fair_suite = NA) {
+  p <- ggplot(df, aes(x=forcats::fct_rev(check_name), fill=check_status)) + 
+    geom_bar(position="fill") +
+    theme_bw() +
+    ggtitle(paste0(node, ': FAIR Suite ', fair_suite)) +
+    scale_fill_manual(values = status_palette) +
+    facet_wrap(facets = ~ check_type, ncol = 4) +
+    xlab("Check Name") +
+    ylab("Proportion") +
+    coord_flip()
+  ggsave(paste0("figures/fair-breakdown-", node, ".png"), height=10, width=10)
+  return(p)
+}
+
+checks_current <- runs_versioned %>% 
+  filter(ser_version > 1) %>% 
+  filter(!origin_mn %in% (c("urn:node:mnTestNKN", "urn:node:ONEShare_test"))) %>% 
+  #filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:EDI", "urn:node:NCEI", "urn:node:ESS_DIVE")) %>% 
   filter(is.na(obsoleted_by), !is.na(ser_version)) %>% 
+  mutate(repo = stringr::str_remove(origin_mn, pattern="urn:node:")) %>% 
   inner_join(checks_joined, by = "run_id") %>% 
   arrange(check_type)
 
-ggplot(checks_current, aes(x=forcats::fct_rev(check_name), fill=check_status)) + 
-  geom_bar(position="fill") +
-  theme_bw() +
-  ggtitle(node) +
-  scale_fill_manual(values = status_palette) +
-  facet_wrap(facets = ~ check_type, ncol = 4) +
-  xlab("Check Name") +
-  ylab("Proportion") +
-  coord_flip()
-ggsave(paste0("figures/fair-breakdown-", node, ".png"), height=10, width=10)
+repo_fair_plots <- checks_current %>%
+  split(.$repo) %>% 
+  purrr::imodify( ~plot_suite_results(df = as.data.frame(.x), node = .y, fair_suite = fair_suite))
+repo_fair_plots
 ```
 
 
