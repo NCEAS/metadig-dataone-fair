@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load_libraries, echo=FALSE}
 library(tidyverse)
-library(purr)
+library(purrr)
 ```
 
 ```{r load_check_data, eval=FALSE, echo=FALSE}
