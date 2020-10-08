@@ -1,0 +1,371 @@
+---
+title: 'FAIR Scores: Initial Analysis of Individual Checks'
+author: "Christopher Beltz"
+date: "9/21/2020"
+output: html_document
+abtract: R packages updated on 2020-09-30. Rmd updated on 2020-09-30.
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+#Setup Environment
+
+
+Load libraries:
+
+```{r}
+library(tidyverse)
+library(reshape2)
+library(patchwork)
+library(here)
+```
+
+
+Load, clean, subset, and calculated change on individual check data:
+
+```{r, eval=FALSE}
+#THIS TAKES ~11 MINUTES TO RUN ON AURORA. FOR CONVENIENCE USE THE ARCHIVED DATA IN THE NEXT CODE CHUCK STARTING ON LINE 42.
+#Load and clean individual check data
+source(here("code", "01a_Cleaning_Individual-FAIR-Checks_CWBeltz.R"), local = knitr::knit_global()) #This takes ~30 seconds on Aurora.
+
+#Subset cleaned data to include only original first/last versions (i.e., metadata submission and final publication), calculate change in FAIR checks over time, and calculated length of curation time (i.e., submission length).
+source(here("code", "02a_Calculation_Individual-FAIR-Checks_CWBeltz.R"), local = knitr::knit_global()) #This takes ~10 minutes on Aurora
+```
+
+
+```{r}
+#load cleaned data from 2020-09-30 created using the code chunk above
+checks_individual_ADC <- readRDS(here("data", "scores_checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
+indivChecks_clean_withCalcs <- readRDS(here("data", "scores_checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
+remove_series_id <- readRDS(here("data", "scores_checks", "cleaned", "remove_series_id_2020-09-30.rds"))
+```
+
+
+
+\pagebreak
+
+
+
+#Data Visualizations
+
+###Figure 1:
+
+```{r}
+plotData_1_all <- indivChecks_clean_withCalcs %>%
+  group_by(check_type, check_level, check_name, dateSplit) %>%
+  summarise(n=n(), 
+            mean=mean(check_status_num))
+```
+
+```{r}
+plotData_1_2020 <- indivChecks_clean_withCalcs %>%
+  filter(dateSplit=="FINAL", year==2020) %>%
+  group_by(year, check_type, check_level,check_id, check_name, dateSplit) %>%
+  summarise(n=n(), 
+            mean=mean(check_status_num))
+
+#change sequence split to "2020" for final year data
+plotData_1_2020$dateSplit <- gsub("FINAL", "2020", plotData_1_2020$dateSplit)
+```
+
+
+```{r}
+#create graphical parameters
+colorValues <- c("INITIAL" = "gray60", "FINAL" = "orangered1")
+fillValues <- c("INITIAL" = "gray80", "FINAL" = "black", "2020" = "#19B36A")
+shapeValues <- c("INITIAL" = 21, "FINAL" = 21, "2020" = 23)
+sizeValues <- c("INITIAL" = 2, "FINAL" = 2, "2020" = 3)
+```
+
+```{r}
+#plot it!
+plot_1 <- ggplot(plotData_1_all, aes(x=mean, y=check_name %>% forcats::fct_reorder(-mean))) +
+  geom_point(data=plotData_1_2020, aes(fill=dateSplit, shape=dateSplit, size=dateSplit)) +
+  geom_line(data=plotData_1_all, aes(group=check_name, color=dateSplit), size=1.2) +
+  geom_point(data=plotData_1_2020, aes(fill=dateSplit, shape=dateSplit, size=dateSplit)) +
+  geom_point(data=plotData_1_all, aes(fill=dateSplit, shape=dateSplit, size=dateSplit)) +
+  facet_wrap(~ check_type, scale="free") +
+  scale_shape_manual(values=shapeValues,
+                     name="FAIR Score at",
+                     labels=c("final publication (2020 only)", "final publication (ADC-wide)", "initial submission (ADC-wide)")) +
+  scale_fill_manual(values=fillValues,
+                    name="FAIR Score at",
+                    labels=c("final publication (2020 only)", "final publication (ADC-wide)", "initial submission (ADC-wide)")) +
+  scale_color_manual(values=colorValues,
+                     name="FAIR Score is",
+                     labels=c("improving", "deteriorating")) +
+  scale_size_manual(values=sizeValues) +
+  theme_minimal() +
+  xlab("") +
+  ylab("") +
+  theme(strip.text.x = element_text(size = 14, colour = "black", face="bold"),
+        panel.border = element_rect(colour = "black", fill=NA)) +
+  theme(legend.position = "top",
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black")) +
+  guides(size = FALSE, 
+         fill = guide_legend(override.aes = list(size = 4)))
+```
+
+```{r}
+plot1 <- plot_1 + plot_annotation(
+  title = 'Proportion of metadata meeting individual FAIR checks',
+  subtitle = 'for the Arctic Data Center',
+  caption = '2020-09-21'
+)
+```
+
+```{r}
+plot1
+```
+
+
+```{r, eval=FALSE}
+#save plot as PNG to aurora
+ggsave(filename="Figure-01_2020-09-30_FAIR-IndividualChecksOverTime.jpg",
+       path=here("figures"),
+       dpi = 400,
+       units="in",
+       width=13,
+       height=7.3)
+```
+
+
+```{r}
+#remove unnecessary stuff
+rm(list=setdiff(ls(), c("checks_individual_ADC", "indivChecks_clean_withCalcs", "remove_series_id", "plot1")))
+```
+
+
+
+
+
+###Figure 2a: Histogram with removed categories highlighted
+
+```{r}
+#create dataset to plot at the individual document (i.e., 'filename' level)
+plotData_2a <- checks_individual_ADC%>%
+  mutate(removeSplit = case_when(
+    is.na(checks_individual_ADC$series_id) == "TRUE" ~ "NO SERIES ID",
+    checks_individual_ADC$series_id %in% remove_series_id == "TRUE" ~ "SINGLE PID IN SERIES_ID",
+    checks_individual_ADC$check_status== "ERROR" ~ "CHECK_STATUS ERROR",
+    TRUE ~ "RETAINED")) %>%
+  group_by(series_id, filename) %>%
+  summarise(date_uploaded=unique(parse_datetime(date_uploaded)), removeSplit=unique(removeSplit))
+```
+
+```{r}
+#set levels for 'removeSplit'
+plotData_2a$removeSplit <- factor(plotData_2a$removeSplit, levels = c("NO SERIES ID", "SINGLE PID IN SERIES_ID", "CHECK_STATUS ERROR", "RETAINED"))
+```
+
+```{r}
+#create graphical parameters
+fillValues <- c("RETAINED" = "gray80", "CHECK_STATUS ERROR" = "dodgerblue" , "NO SERIES ID" = "#146660", "SINGLE PID IN SERIES_ID" = "#19B36A")
+```
+
+```{r}
+#plot it
+plot2a_hist <- ggplot(plotData_2a, aes(x=date_uploaded, fill=removeSplit, order=removeSplit)) +
+  geom_histogram(bins=50) +
+  scale_fill_manual(values=fillValues,
+                    name="Status",
+                    labels=c("REMOVED: NO SERIES ID", "REMOVED: SINGLE PID IN SERIES_ID", "REMOVED: CHECK_STATUS ERROR", "RETAINED")) +
+  theme_minimal() +
+  xlab("Date of PID upload") +
+  ylab("EML docs uploaded (by PID)") +
+  theme(legend.position = c(0.80, 0.81),
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black")) +
+  theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=15,face="bold"))
+```
+
+
+
+###Figure 2b: Histogram with removed categories highlighted
+
+```{r}
+#create dataset to plot at the series_id level
+plotData_2b <- checks_individual_ADC%>%
+  mutate(removeSplit = case_when(
+    is.na(checks_individual_ADC$series_id) == "TRUE" ~ "NO SERIES ID",
+    checks_individual_ADC$series_id %in% remove_series_id == "TRUE" ~ "SINGLE PID IN SERIES_ID",
+    checks_individual_ADC$check_status== "ERROR" ~ "CHECK_STATUS ERROR",
+    TRUE ~ "RETAINED")) %>%
+  group_by(removeSplit) %>%
+  summarise(count_series_id=length(unique(series_id)))
+```
+
+```{r}
+#set levels for 'removeSplit'
+plotData_2b$removeSplit <- factor(plotData_2b$removeSplit, levels = c("NO SERIES ID", "CHECK_STATUS ERROR", "SINGLE PID IN SERIES_ID", "RETAINED"))
+```
+
+```{r}
+plot2b_hist <- ggplot(plotData_2b, aes(x=removeSplit, y=count_series_id, fill=removeSplit)) +
+  geom_col() +
+  geom_text(aes(label = count_series_id), position = position_dodge(0.9)) +
+  scale_fill_manual(values=fillValues) +
+  theme_minimal() +
+  xlab("") +
+  ylab("count of series_id") +
+  theme(plot.background = element_rect(fill = "white", color="black")) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  guides(fill = FALSE)
+```
+
+
+
+###Figure 2a+b Combined
+
+```{r}
+plot2_combo <- plot2a_hist + annotation_custom(ggplotGrob(plot2b_hist), 
+                               xmin = parse_datetime("2010-03-01T00:00:00Z"), 
+                               xmax = parse_datetime("2014-01-01T00:00:00Z"), 
+                               ymin = 2000, 
+                               ymax = 4000)
+```
+
+```{r}
+plot2_combo <- plot2_combo + plot_annotation(
+  title = 'Data removed from the upcoming FAIR check analysis',
+  subtitle = 'using the full corpus for the Arctic Data Center with checks updated on 2020-09-29',
+  caption = '2020-09-30'
+)
+```
+
+```{r}
+plot2_combo
+```
+
+
+```{r, eval=FALSE}
+#save plot as PNG to aurora
+ggsave(filename="Figure-02_2020-09-30_DataRemoved.jpg",
+       path=here("figures"),
+       dpi = 400,
+       units="in",
+       width=13,
+       height=7.3)
+```
+
+
+```{r}
+#remove unnecessary stuff
+rm(list=setdiff(ls(), c("checks_individual_ADC", "indivChecks_clean_withCalcs", "plot1", "plot2_combo")))
+```
+
+
+
+###Figure 3: 
+
+```{r}
+#create dataset to plot at the check_name/check_id level
+plotData_3 <- indivChecks_clean_withCalcs %>%
+group_by(check_type, check_level, check_name) %>%
+  summarise(meanDiff = mean(checkDiff),
+         scoreSign = sign(meanDiff))
+
+plotData_3 <-indivChecks_clean_withCalcs %>%
+  filter(checkDiff==-1) %>%
+  group_by(check_type, check_level, check_name) %>%
+  summarise(n_series=n()/2) %>%
+  right_join(select(plotData_3, "check_name", "meanDiff")) %>%
+  mutate(n_series = replace_na(n_series, 0))
+```
+
+```{r}
+#plot it!
+plot3 <- ggplot(plotData_3, aes(x=meanDiff, y=check_name %>% forcats::fct_reorder(-meanDiff), size=n_series)) +
+  geom_point() +
+  facet_wrap(~ check_type, scale="free") +
+  scale_size_area(max_size = 6) +
+  theme_minimal() +
+  coord_cartesian(xlim = c(-0.60, 0.60)) +
+  xlab("") +
+  ylab("") +
+  theme(strip.text.x = element_text(size = 14, colour = "black", face="bold"),
+        panel.border = element_rect(colour = "black", fill=NA)) +
+  theme(legend.position = "top",
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black")) +
+  guides(size=guide_legend(title="Series_IDs with Negative Check"))
+```
+
+```{r}
+plot3 <- plot3 + plot_annotation(
+  title = 'Mean Change in Proportion of Passing Metadata Checks from Initial to Final Version',
+  subtitle = 'calculated using individual FAIR checks for each unique series_ids in the ADC',
+  caption = '2020-09-30')
+
+plot3
+```
+
+
+```{r, eval=FALSE}
+#save plot as JPG to aurora
+ggsave(filename="Figure-03_2020-09-30_CalculatedChangeOfIndividualDocs.jpg",
+       path=here("figures"),
+       dpi = 400,
+       units="in",
+       width=13,
+       height=7.3)
+```
+
+
+```{r}
+#remove unnecessary stuff
+rm(list=setdiff(ls(), c("checks_individual_ADC", "indivChecks_clean_withCalcs", "plot1", "plot2_combo", "plot3")))
+```
+
+
+
+###Figure 4: Submission date of negative scores for Check: Entity Type Present
+
+```{r}
+plot4 <- indivChecks_clean_withCalcs %>%
+  filter(dateSplit=="INITIAL", scoreSign==-1) %>%
+  filter(check_name=="Entity Type Present") %>%
+  group_by(series_id, filename) %>%
+  summarise(date_uploaded=unique(parse_datetime(date_uploaded))) %>%
+  ggplot(aes(x=date_uploaded)) +
+  geom_histogram(bins=50) +
+    theme_minimal() +
+  xlab("Date of initial submission") +
+  ylab("EML docs uploaded (by PID)") +
+  theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=15,face="bold"))
+```
+
+```{r}
+plot4 <- plot4 + plot_annotation(
+  title = 'Number of submissions for all deteriorating checks for "Entity Type Present"',
+  subtitle = 'across the entire ADC corpus',
+  caption = '2020-09-28'
+)
+
+plot4
+```
+
+
+```{r, eval=FALSE}
+#save plot as PNG to aurora
+ggsave(filename="Figure-04_2020-09-28_SubmissionDateEntityTypePresent.jpg",
+       path=here("figures"),
+       dpi = 400,
+       units="in",
+       width=13,
+       height=7.3)
+```
+
+
+
+
