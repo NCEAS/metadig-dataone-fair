@@ -3,7 +3,7 @@ title: "FAIR Scores: Investigating Curation Practices"
 author: "Christopher Beltz"
 date: "10/1/2020"
 output: html_document
-abtract: R packages updated on 2020-10-08. Rmd updated on 2020-10-08.
+abtract: R packages updated on 2020-10-12. Rmd updated on 2020-10-12.
 ---
 
 ```{r setup, include=FALSE}
@@ -40,9 +40,9 @@ source(here("code", "02a_Calculation_Individual-FAIR-Checks_CWBeltz.R"), local =
 
 ```{r}
 #load cleaned data from 2020-09-30 created using the code chunk above
-checks_individual_ADC <- readRDS(here("data", "scores_checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
-indivChecks_clean_withCalcs <- readRDS(here("data", "scores_checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
-remove_series_id <- readRDS(here("data", "scores_checks", "cleaned", "remove_series_id_2020-09-30.rds"))
+checks_individual_ADC <- readRDS(here("data", "Individual-Checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
+indivChecks_clean_withCalcs <- readRDS(here("data", "Individual-Checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
+remove_series_id <- readRDS(here("data", "Individual-Checks", "cleaned", "remove_series_id_2020-09-30.rds"))
 ```
 
 
@@ -165,10 +165,10 @@ plot5b <- ggplot(plotData_5_post2016, aes(x=mean, y=check_name %>% forcats::fct_
   facet_wrap(~ check_type, scale="free") +
   scale_shape_manual(values=shapeValues,
                      name="FAIR Score at",
-                     labels=c("ACADIS", "final publication (ADC-wide)", "initial submission (ADC-wide)")) +
+                     labels=c("pre-ADC", "final publication (ADC-wide)", "initial submission (ADC-wide)")) +
   scale_fill_manual(values=fillValues,
                     name="FAIR Score at",
-                    labels=c("ACADIS", "final publication (ADC-wide)", "initial submission (ADC-wide)")) +
+                    labels=c("pre-ADC", "final publication (ADC-wide)", "initial submission (ADC-wide)")) +
   scale_color_manual(values=colorValues,
                      name="FAIR Score is",
                      labels=c("improving", "deteriorating")) +
@@ -188,7 +188,7 @@ plot5b <- ggplot(plotData_5_post2016, aes(x=mean, y=check_name %>% forcats::fct_
 ```{r}
 plot5b <- plot5b + plot_annotation(
   title = 'Proportion of metadata meeting individual FAIR checks',
-  subtitle = 'for the Arctic Data Center and ACADIS',
+  subtitle = 'for the Arctic Data Center and pre-ADC data',
   caption = '2020-10-08'
 )
 ```
@@ -200,7 +200,7 @@ plot5b
 
 ```{r, eval=FALSE}
 #save plot as PNG to aurora
-ggsave(filename="Figure-05b_2020-10-08_FAIR-IndividualChecksOverTime_withACADIS.jpg",
+ggsave(filename="Figure-05b_2020-10-15_FAIR-IndividualChecksOverTime_withACADIS.jpg",
        path=here("figures"),
        dpi = 400,
        units="in",

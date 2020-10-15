@@ -171,8 +171,8 @@ rm(formerTBD_dateSplit, noTBD_datesplit, indivChecks_clean, indivChecks_firstLas
 
 
 #Save to three remaining files (checks_inidividual_ADC, indivChecks_clean_withCalcs, remove_series_id)
-# saveRDS(checks_individual_ADC, file = here("FAIR-Checks", "data", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
-# saveRDS(indivChecks_clean_withCalcs, file = here("FAIR-Checks", "data", "cleaned", "indivChecks_clean_2020-09-30.rds"))
-# saveRDS(remove_series_id, file = here("FAIR-Checks", "data", "cleaned", "remove_series_id_2020-09-30.rds"))
+# saveRDS(checks_individual_ADC, file = here("FAIR-Checks", "data", "Individual-Checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
+# saveRDS(indivChecks_clean_withCalcs, file = here("FAIR-Checks", "data", "Individual-Checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
+# saveRDS(remove_series_id, file = here("FAIR-Checks", "data", "Individual-Checks", "cleaned", "remove_series_id_2020-09-30.rds"))
 
 

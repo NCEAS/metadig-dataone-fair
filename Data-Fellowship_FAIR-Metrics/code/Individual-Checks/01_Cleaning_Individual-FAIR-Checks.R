@@ -2,8 +2,8 @@
 #  title: "FAIR Scores: Cleaning Individual Check Data"
 #  author: "Christopher W. Beltz"
 #  date created: "2020-09-21"
-#  date updated: "2020-09-30"
-#  packages updated: "2020-09-30"
+#  date updated: "2020-10-12"
+#  packages updated: "2020-10-12"
 #  R version: "3.6.3"
 #  input: "uncleaned RDA with large CSV of individual checks for ADC and LTER"
 #  output: "cleaned CSV to RDS of individual checks for ADC-only data"
@@ -29,7 +29,7 @@ library(here)
 path_arctic_individual_checks <- "/home/slaughter/FAIR-suite-0.3.1/ARCTIC/check-data/fair-0.3.1-checks-joined.rda"
 
 #get path to FAIR checks for ADC data ONLY using locally stored copy at /home/cwbeltz/FAIR-Checks
-#path_arctic_individual_checks <- here("FAIR-Checks", "data", "scores_checks", "raw", "fair-0.3.1-checks-joined.rda")
+#path_arctic_individual_checks <- here("FAIR-Checks", "data", "Individual-Checks", "raw", "fair-0.3.1-checks-joined.rda")
 
 #load ADC checks
 load(file = path_arctic_individual_checks)

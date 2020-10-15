@@ -3,7 +3,7 @@ title: 'FAIR Scores: Initial Analysis of Individual Checks'
 author: "Christopher Beltz"
 date: "9/21/2020"
 output: html_document
-abtract: R packages updated on 2020-09-30. Rmd updated on 2020-09-30.
+abtract: R packages updated on 2020-10-12. Rmd updated on 2020-10-12.
 ---
 
 
@@ -41,9 +41,9 @@ source(here("code", "02a_Calculation_Individual-FAIR-Checks_CWBeltz.R"), local =
 
 ```{r}
 #load cleaned data from 2020-09-30 created using the code chunk above
-checks_individual_ADC <- readRDS(here("data", "scores_checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
-indivChecks_clean_withCalcs <- readRDS(here("data", "scores_checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
-remove_series_id <- readRDS(here("data", "scores_checks", "cleaned", "remove_series_id_2020-09-30.rds"))
+checks_individual_ADC <- readRDS(here("data", "Individual-Checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
+indivChecks_clean_withCalcs <- readRDS(here("data", "Individual-Checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
+remove_series_id <- readRDS(here("data", "Individual-Checks", "cleaned", "remove_series_id_2020-09-30.rds"))
 ```
 
 
