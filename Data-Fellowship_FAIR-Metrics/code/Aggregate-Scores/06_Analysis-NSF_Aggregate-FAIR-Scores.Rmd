@@ -1,0 +1,389 @@
+---
+title: "FAIR Scores: Aggregate FAIR Scores Analysis for NSF Figure (Take 2)"
+author: "Christopher Beltz"
+date: "10/27/2020"
+output: html_document
+abtract: R packages updated on 2020-10-28. Rmd updated on 2020-10-28.
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Setup Environment
+
+
+Load libraries:
+
+```{r}
+library(tidyverse)
+library(reshape2)
+library(patchwork)
+library(here)
+```
+
+
+Load ADC theme for ggplot
+```{r}
+devtools::source_url("https://raw.github.nceas.ucsb.edu/KNB/arctic-data/master/reporting/R/theme_ADC.R?token=AAAABNRLO3IMGU55A4PESF27UGP2K")
+```
+
+
+Load, clean, subset, and calculated change on individual check data:
+
+```{r}
+#Load and clean aggregate check data
+source(here("code", "Aggregate-Scores", "01_Cleaning_Aggregate-FAIR-Scores.R"), local = knitr::knit_global())
+
+#Subset cleaned data to include only original first/last versions (i.e., metadata submission and final publication), calculate change in FAIR scores over time
+source(here("code", "Aggregate-Scores", "02_Calculation_Aggregate-FAIR-Scores.R"), local = knitr::knit_global())
+```
+
+
+\pagebreak
+
+
+
+#Data Wrangling
+
+```{r}
+#create list of sequenceIDs for all datasets that were submitted or had a vesion submitted prior to ADC openning (2016-03-21)
+preADC_seqId <- aggChecks_clean_withCalcs %>%
+  group_by(sequenceId) %>%
+  filter(dateSplit=="INITIAL",
+         dateUploaded < parse_datetime("2016-03-21")) %>%
+  summarise(n=n(),
+            dateSplit = dateSplit,
+            dateUploaded = dateUploaded)
+```
+
+```{r}
+#filter out datasets from before 2016-03-21 and use the dateUpload from initial metadata as submissionDate
+NSF_data <- aggChecks_clean_withCalcs %>% 
+  filter(!sequenceId %in% preADC_seqId$sequenceId) %>% 
+  group_by(sequenceId) %>% 
+  summarize(dateSplit=dateSplit,
+            submissionDate=dateUploaded[which(dateSplit=="INITIAL")],
+            scoreOverall=scoreOverall,
+            scoreFindable=scoreFindable,
+            scoreAccessible=scoreAccessible,
+            scoreInteroperable=scoreInteroperable,
+            scoreReusable=scoreReusable)
+```
+
+
+
+#Figure 11: Static 1-month bin
+
+###Data Wrangling a static 1-month bin
+
+```{r}
+data_plot11 <- NSF_data %>%
+  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>% 
+  group_by(dateSplit, date_floor) %>% 
+  summarize(meanOverall=mean(scoreOverall),
+            meanFindable=mean(scoreFindable),
+            meanAccessible=mean(scoreAccessible),
+            meanInteroperable=mean(scoreInteroperable),
+            meanReusable=mean(scoreReusable))
+
+data_plot11 <- data_plot11 %>% 
+  pivot_longer(cols = c(meanOverall, meanFindable, meanAccessible, meanInteroperable, meanReusable),
+               names_to = "type",
+               values_to = "score")
+
+data_plot11$type <- factor(data_plot11$type, levels = c("meanOverall", "meanFindable", "meanAccessible", "meanInteroperable", "meanReusable"))
+```
+
+
+###Data Visualization
+
+```{r}
+colorValues <- c("meanOverall" = "black",
+                 "meanFindable" = "darkgreen", 
+                 "meanAccessible" = "darkblue",
+                 "meanInteroperable" = "orange",
+                 "meanReusable" = "firebrick")
+lineValues <- c("FINAL" = "solid", "INITIAL" = "dashed")
+```
+
+
+```{r}
+plot11a <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction(type, dateSplit))) +
+  geom_line(data=data_plot11[which(data_plot11$type=="meanOverall"),], aes(linetype=dateSplit), color="black") +
+  ylim(0,1) +
+  xlab("Date of Submission to the ADC") +
+  ylab("Mean Monthly Score") +
+  scale_color_manual(values=colorValues,
+                     name="",
+                     labels=c("")) +
+  scale_linetype_manual(values=lineValues,
+                        name="",
+                        labels=c("Initial Submission", "Final Publication")) +
+  theme_minimal() +
+  theme_ADC +
+  theme(legend.position = "top") +
+  annotate("text", x = as.POSIXct('2016-03-15'), y = 0.88, label = "OVERALL", color="black")
+
+
+plot11a
+```
+
+```{r}
+plot11b <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction(type, dateSplit))) +
+  geom_line(data=data_plot11[which(data_plot11$type=="meanFindable"),], aes(linetype=dateSplit, color=type)) +
+  ylim(0,1) +
+  ylab("") +
+  xlab("") +
+  scale_color_manual(values=colorValues) +
+  scale_linetype_manual(values=lineValues) +
+  theme_minimal() +
+  theme_ADC +
+  theme(legend.position = "none") +
+  annotate("text", 
+           x = as.POSIXct('2016-05-01'), 
+           y = 0.95, 
+           label = "FINDABLE", 
+           color="darkgreen",
+           size=2.5)
+
+plot11b
+```
+
+```{r}
+plot11c <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction(type, dateSplit))) +
+  geom_line(data=data_plot11[which(data_plot11$type=="meanAccessible"),], aes(linetype=dateSplit, color=type)) +
+  ylim(0,1) +
+  ylab("") +
+  xlab("") +
+  scale_color_manual(values=colorValues) +
+  scale_linetype_manual(values=lineValues) +
+  theme_minimal() +
+  theme_ADC +
+  theme(legend.position = "none") +
+  annotate("text", 
+           x = as.POSIXct('2016-06-01'), 
+           y = 0.95, 
+           label = "ACCESSIBLE", 
+           color="darkblue",
+           size=2.5)
+
+
+plot11c
+```
+
+```{r}
+plot11d <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction(type, dateSplit))) +
+  geom_line(data=data_plot11[which(data_plot11$type=="meanInteroperable"),], aes(linetype=dateSplit, color=type)) +
+  ylim(0,1) +
+  ylab("") +
+  xlab("") +
+  scale_color_manual(values=colorValues) +
+  scale_linetype_manual(values=lineValues) +
+  theme_minimal() +
+  theme_ADC +
+  theme(legend.position = "none") +
+  annotate("text", 
+           x = as.POSIXct('2016-07-20'), 
+           y = 0.95, 
+           label = "INTEROPERABLE",
+           color="orange",
+           size=2.5)
+
+
+plot11d
+```
+
+```{r}
+plot11e <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction(type, dateSplit))) +
+  geom_line(data=data_plot11[which(data_plot11$type=="meanReusable"),], aes(linetype=dateSplit, color=type)) +
+  ylim(0,1) +
+  ylab("") +
+  xlab("") +
+  scale_color_manual(values=colorValues) +
+  scale_linetype_manual(values=lineValues) +
+  theme_minimal() +
+  theme_ADC +
+  theme(legend.position = "none") +
+  annotate("text", 
+           x = as.POSIXct('2016-05-15'), 
+           y = 0.95, 
+           label = "REUSABLE", 
+           color="firebrick",
+           size=2.5)
+
+
+plot11e
+```
+
+
+###Create final image using `patchwork`
+NOTE: https://patchwork.data-imaginist.com/articles/guides/layout.html
+
+```{r}
+FAIR_layout <- "
+  AAAAAA
+  AAAAAA
+  BBBCCC
+  BBBCCC
+  DDDEEE
+  DDDEEE
+"
+```
+
+
+```{r}
+#create final plot
+plot11 <- plot11a + plot11b + plot11c + plot11d + plot11e +
+  plot_layout(design = FAIR_layout) +
+  plot_annotation(title = 'Change in FAIR scores from initial submission to final upload',
+                  caption = '2020-10-28',
+                  subtitle = '2016-03-21 to present')
+
+plot11
+```
+
+
+```{r, eval=FALSE}
+#save plot as JPG to Aurora
+ggsave(filename="Figure-11_2020-10-28_AggregateScores-FAIR-NSF.jpg",
+       path=here("figures"),
+       bg="transparent",
+       dpi = 300,
+       units="in",
+       width=9.5,
+       height=6)
+```
+
+
+```{r}
+rm(list=setdiff(ls(), c("checks_aggregate_ADC", "aggChecks_clean_withCalcs", "NSF_data", "theme_ADC", "plot11")))
+```
+
+
+
+#Figure 12: Sliding window
+
+###Data Wrangling
+
+```{r}
+#this is kind of hacky. may need to be improved later. 
+
+NSF_data_initial <- NSF_data %>% 
+  filter(dateSplit=="INITIAL") %>% 
+  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>% 
+  arrange(submissionDate)
+
+NSF_data_final <- NSF_data %>% 
+  filter(dateSplit=="FINAL") %>% 
+  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>% 
+  arrange(submissionDate)
+
+
+data_plot12 <- data.frame(
+  dateSplit = as.factor(c(rep("INITIAL", 55), rep("FINAL",55))),
+  date_floor = as.Date(rep(NA, 110)),
+  meanOverall_running = as.numeric(rep(NA, 110)),
+  meanFindable_running = as.numeric(rep(NA, 110)),
+  meanAccessible_running = as.numeric(rep(NA, 110)),
+  meanInteroperable_running = as.numeric(rep(NA, 110)),
+  meanReusable_running = as.numeric(rep(NA, 110))
+)
+
+data_plot12$date_floor[which(data_plot12$dateSplit=="INITIAL")] <- sort(unique(NSF_data_initial$date_floor))
+data_plot12$date_floor[which(data_plot12$dateSplit=="FINAL")] <- sort(unique(NSF_data_final$date_floor))
+
+test_index <- sort(unique(NSF_data_final$date_floor))
+  
+data_plot12$meanOverall_running[data_plot12$dateSplit=="INITIAL"] <- runner::runner(x=NSF_data_initial$scoreOverall,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanFindable_running[data_plot12$dateSplit=="INITIAL"] <- runner::runner(x=NSF_data_initial$scoreFindable,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanAccessible_running[data_plot12$dateSplit=="INITIAL"] <- runner::runner(x=NSF_data_initial$scoreAccessible,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanInteroperable_running[data_plot12$dateSplit=="INITIAL"] <- runner::runner(x=NSF_data_initial$scoreInteroperable,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanReusable_running[data_plot12$dateSplit=="INITIAL"] <- runner::runner(x=NSF_data_initial$scoreReusable,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanOverall_running[data_plot12$dateSplit=="FINAL"] <- runner::runner(x=NSF_data_final$scoreOverall,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanFindable_running[data_plot12$dateSplit=="FINAL"] <- runner::runner(x=NSF_data_final$scoreFindable,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanAccessible_running[data_plot12$dateSplit=="FINAL"] <- runner::runner(x=NSF_data_final$scoreAccessible,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanInteroperable_running[data_plot12$dateSplit=="FINAL"] <- runner::runner(x=NSF_data_final$scoreInteroperable,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+
+data_plot12$meanReusable_running[data_plot12$dateSplit=="FINAL"] <- runner::runner(x=NSF_data_final$scoreReusable,
+                           f=mean,
+                           idx=NSF_data_initial$date_floor,
+                           at=test_index)
+```
+
+
+
+```{r}
+data_plot12 <- data_plot12 %>% 
+  pivot_longer(cols = c(meanOverall_running, meanFindable_running, meanAccessible_running, meanInteroperable_running, meanReusable_running),
+               names_to = "type",
+               values_to = "score")
+
+data_plot12$type <- factor(data_plot12$type, levels = c("meanOverall_running", "meanFindable_running", "meanAccessible_running", "meanInteroperable_running", "meanReusable_running"))
+
+```
+
+
+###Data Visualization
+
+```{r}
+plot12 <- ggplot(data_plot12, aes(x=date_floor, y=score)) +
+  geom_line(aes(color=dateSplit)) +
+  facet_wrap(~type)
+
+plot12
+```
+
+
+```{r, eval=FALSE}
+#save plot as JPG to Aurora
+ggsave(filename="Figure-12_2020-10-28_AggregateScores-FAIR-NSF-test2.jpg",
+       path=here("figures"),
+       bg="transparent",
+       dpi = 300,
+       units="in",
+       width=9.5,
+       height=6)
+```
+
+
+
+```{r}
+
+```
+

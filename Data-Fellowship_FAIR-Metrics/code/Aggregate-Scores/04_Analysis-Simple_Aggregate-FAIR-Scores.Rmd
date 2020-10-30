@@ -23,6 +23,12 @@ library(here)
 ```
 
 
+Load ADC theme for ggplot
+```{r}
+devtools::source_url("https://raw.github.nceas.ucsb.edu/KNB/arctic-data/master/reporting/R/theme_ADC.R?token=AAAABNUU7WVBRSKNPOHYU3K7SLZQQ")
+```
+
+
 Load, clean, subset, and calculated change on individual check data:
 
 ```{r}
@@ -171,7 +177,7 @@ plot7b <- ggplot(plotData_7, aes(x=meanScore, y=scoreType)) +
                      labels=c("improving", "deteriorating")) +
   scale_size_manual(values=sizeValues) +
   xlim(0,1) +
-  theme_minimal() +
+  theme_ADC +
   xlab("Mean Score") +
   ylab("FAIR Category") +
     theme(legend.position = "top",
@@ -184,8 +190,8 @@ plot7b <- ggplot(plotData_7, aes(x=meanScore, y=scoreType)) +
 ```{r}
 plot7b <- plot7b + plot_annotation(
   title = 'Proportion of metadata meeting aggregate FAIR Scores',
-  subtitle = 'for the Arctic Data Center (2016-03-21 to present) and pre-ADC data',
-  caption = '2020-10-15'
+  subtitle = 'for  pre-ADC data (before 2016-03-21) and ADC data (after 2016-03-21)',
+  caption = '2020-10-16'
 )
 ```
 
@@ -196,7 +202,7 @@ plot7b
 
 ```{r, eval=FALSE}
 #save plot as JPG to Aurora
-ggsave(filename="Figure-07b_2020-10-15_AggregateScores-FAIR-Simple.jpg",
+ggsave(filename="Figure-07b_2020-10-16_AggregateScores-FAIR-Simple.jpg",
        path=here("figures"),
        bg="transparent",
        dpi = 300,
