@@ -2,8 +2,8 @@
 #  title: "FAIR Scores: Subsetting and Calculating Google analytics view data"
 #  author: "Christopher W. Beltz"
 #  date created: "2020-10-13"
-#  date updated: "2020-10-13"
-#  packages updated: "2020-10-13"
+#  date updated: "2020-10-16"
+#  packages updated: "2020-10-16"
 #  R version: "3.6.3"
 #  input: "..."
 #  output: "..."
@@ -15,10 +15,12 @@
 library(dataone)
 library(EML)
 library(emld)
+library(arcticdatautils)
 library(tidyverse)
 library(reshape2)
 library(patchwork)
 library(here)
+
 
 
 #################################################################
@@ -112,10 +114,33 @@ unique(namesX)
 ## Combine disparate DOI views to most current version DOI  ##
 ##############################################################
 
+#NOTE this current file is written out and takes ~3hours to run
 
+# # #set up your nodes (in this case using the arcticdata node)
+# cn <- CNode("PROD")
+# adc <- getMNode(cn, "urn:node:ARCTIC") # the mn
+# 
+# 
+# #get all versions for each pid in ADC
+# unique_DOIs <- unique(GA_subset$Page)
+# 
+# dataframe_DOIs <- data.frame(matrix(ncol=2,nrow=length(unique_DOIs)))
+# colnames(dataframe_DOIs) <- c("original.DOI", "recent.DOI")
+# dataframe_DOIs$original.DOI <- unique_DOIs
+# 
+# start_time <- Sys.time()
+# start_time
+# for (i in 1:length(dataframe_DOIs$original.DOI)) {
+#   DOI_recent_version <- try(get_all_versions(adc, dataframe_DOIs$original.DOI[i]))
+#   dataframe_DOIs$recent.DOI[i] <- tail(DOI_recent_version, n=1)
+#   print(i)
+# }
+# start_time
+# Sys.time()
 
+# write.csv(dataframe_DOIs, file = here("data", "Google-Analytics_views", "dataframe_DOIs.csv"))
 
-
+dataframe_DOIs <- read.csv(file = here("data", "Google-Analytics_views", "dataframe_DOIs.csv"))
 
 ##############################
 ## Remove unneeded columns  ##

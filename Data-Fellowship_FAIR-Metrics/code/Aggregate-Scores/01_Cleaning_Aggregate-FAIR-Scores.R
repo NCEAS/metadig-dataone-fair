@@ -28,6 +28,7 @@ library(here)
 #Get updated aggregate check scores via terminal
 # curl -v --GET -H "Accept: text/csv" "https://docker-ucsb-4.dataone.org:30443/quality/scores/?id=urn:node:ARCTIC&suite=FAIR-suite-0.3.1"
 # add -o "[filname].csv"
+# NOTE: run the above two lines together
 
 #get path to aggregate FAIR scores for ADC data ONLY (from Chris Beltz's drive on Aurora)
 #path_arctic_aggregate_checks <- "/home/cwbeltz/FAIR-Checks/data/output_2020-09-08_check-aggregate-data.csv"

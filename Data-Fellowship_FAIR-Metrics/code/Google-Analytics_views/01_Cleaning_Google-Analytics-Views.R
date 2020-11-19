@@ -62,7 +62,7 @@ rm(google_analytics_views_2016, google_analytics_views_2017, google_analytics_vi
 ## Create cleaned dataframe ##
 ##############################
 
-#CREAT CLEANED DATASET
+#CREATE CLEANED DATASET
 GA_analytics_views <- GA_complete
 
 
