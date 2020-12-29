@@ -30,7 +30,7 @@ library(here)
 ###################################################################
 
 #load common graphical parameters, based on `theme_ADC` from "github.nceas.ucsb.edu/KNB/arctic-data/blob/master/reporting/R/theme_ADC.R"
-source(here("code", "Graphical", "theme_ADC_modified.R"))
+source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modified.R"))
 
 
 
@@ -78,11 +78,11 @@ gganimate_NSF_monthly <- checks_aggregate_ADC %>%
             meanInteroperable = mean(scoreInteroperable),
             meanReusable = mean(scoreReusable))
 
-gganimate_NSF_monthly_nOnly <- gganimate_NSF_monthly %>% 
+gganimate_NSF_monthly_nOnly <- gganimate_NSF_monthly %>%
   select(date_floor, n)
 
-gganimate_NSF_monthly <- gganimate_NSF_monthly %>% 
-  select(!n) %>% 
+gganimate_NSF_monthly <- gganimate_NSF_monthly %>%
+  select(!n) %>%
   pivot_longer(cols = c(meanOverall, meanFindable, meanAccessible, meanInteroperable, meanReusable),
                names_to = "type",
                values_to = "score")
@@ -97,25 +97,25 @@ gganimate_NSF_monthly$type <- factor(gganimate_NSF_monthly$type, levels = c("mea
 
 #set graphic parameters
 colorValues <- c("meanOverall" = "black",
-                 "meanFindable" = "darkgreen", 
+                 "meanFindable" = "darkgreen",
                  "meanAccessible" = "darkblue",
                  "meanInteroperable" = "orange",
                  "meanReusable" = "firebrick")
 
 lineValues <- c("meanOverall" = "solid",
-                 "meanFindable" = "dashed", 
+                 "meanFindable" = "dashed",
                  "meanAccessible" = "dashed",
                  "meanInteroperable" = "dashed",
                  "meanReusable" = "dashed")
 
 sizeValues <- c("meanOverall" = 1.5,
-                "meanFindable" = 0.5, 
+                "meanFindable" = 0.5,
                 "meanAccessible" = 0.5,
                 "meanInteroperable" = 0.5,
                 "meanReusable" = 0.5)
 
 alphaValues <- c("meanOverall" = 1.0,
-                "meanFindable" = 0.75, 
+                "meanFindable" = 0.75,
                 "meanAccessible" = 0.75,
                 "meanInteroperable" = 0.75,
                 "meanReusable" = 0.75)
@@ -135,7 +135,7 @@ plot10_raw <- ggplot() +
   annotate('text', x = as.POSIXct('2018-10-31'), y = -150, label = "special thing\n #3", fontface = 'bold.italic', size = 4) +
   annotate('text', x = as.POSIXct('2019-08-15'), y = -150, label = "FAIR 0.2.1", fontface = 'bold.italic', size = 4) +
   annotate('text', x = as.POSIXct('2020-05-25'), y = -150, label = "FAIR 0.3.2", fontface = 'bold.italic', size = 4) +
-  annotate("curve", x = as.POSIXct("2016-09-15"), xend = as.POSIXct("2016-03-30"), y = 3950, yend = 2750, curvature = 0.5, 
+  annotate("curve", x = as.POSIXct("2016-09-15"), xend = as.POSIXct("2016-03-30"), y = 3950, yend = 2750, curvature = 0.5,
            size = 1.0, arrow = arrow(length = unit(2, "mm")), colour = "firebrick") +
   annotate('text', x = as.POSIXct('2017-04-15'), y = 3950, label = "ACADIS data imported", fontface = 'bold.italic', size = 5) +
   geom_bar(data = gganimate_NSF_monthly_nOnly, aes(x=date_floor, y=n, group=seq_along(date_floor)), fill="gray40", stat = 'identity', alpha=0.50) +
@@ -152,7 +152,7 @@ plot10_raw <- ggplot() +
   scale_alpha_manual(values=alphaValues,
                     name="FAIR Score Category:",
                     labels=c("Overall", "Findable", "Accessible", "Interoperable", "Reusable")) +
-  scale_y_continuous(name = 'Monthly Dataset Uploads', 
+  scale_y_continuous(name = 'Monthly Dataset Uploads',
                      sec.axis = sec_axis(~./4000, name = "Mean Monthly FAIR Score")) +
   labs(x = "Date") +
   scale_x_datetime(date_breaks = "1 year", date_labels="%Y") +
@@ -171,7 +171,7 @@ plot10 <-plot10_raw
 #   subtitle = 'since the inception of the Arctic Data Center',
 #   caption = 'updated 2020-11-05
 #   data current on 2020-10-12')
-# 
+#
 # plot10
 #
 #

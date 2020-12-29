@@ -29,15 +29,15 @@ library(EML)
 # #THIS TAKES ~11 MINUTES TO RUN ON AURORA. FOR CONVENIENCE USE THE ARCHIVED DATA IN THE NEXT CODE CHUCK STARTING ON LINE 42.
 # #Load and clean individual check data
 # source(here("code", "01a_Cleaning_Individual-FAIR-Checks.R"), local = knitr::knit_global()) #This takes ~30 seconds on Aurora.
-# 
+#
 # #Subset cleaned data to include only original first/last versions (i.e., metadata submission and final publication), calculate change in FAIR checks over time, and calculated length of curation time (i.e., submission length).
 # source(here("code", "02a_Calculation_Individual-FAIR-Checks.R"), local = knitr::knit_global()) #This takes ~10 minutes on Aurora
 
 
 #load cleaned individual check data from 2020-09-30 created using the code chunk above
-checks_individual_ADC <- readRDS(here("data", "Individual-Checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
-indivChecks_clean_withCalcs <- readRDS(here("data", "Individual-Checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
-remove_series_id <- readRDS(here("data", "Individual-Checks", "cleaned", "remove_series_id_2020-09-30.rds"))
+checks_individual_ADC <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Individual-Checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
+indivChecks_clean_withCalcs <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Individual-Checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
+remove_series_id <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Individual-Checks", "cleaned", "remove_series_id_2020-09-30.rds"))
 
 
 
@@ -105,28 +105,28 @@ pids_negChecks <- tribble(
 
 #create for loop to identify and run solr queries for records with negative mean checks
 for (i in 1:length(unique(examine_top_negScores$check_name))) {
-  
+
   print(examine_top_negScores$check_name[i])
-  
+
   checks_with_negScores <- indivChecks_clean_withCalcs %>%
     filter(dateSplit=="INITIAL", scoreSign==-1) %>%
     filter(check_name %in% examine_top_negScores$check_name[i]) %>%
     summarise(pids_negative_unique = unique(pid),
               check_name = check_name)
-  
+
   pids_negChecks <- full_join(pids_negChecks, checks_with_negScores)
-  
-  
+
+
   #subset solr query to only those pids that had a negative change score (i.e. deterioration)
   solr_ADC_negSubset <- solr_query_ADC_all %>%
     filter(identifier %in% checks_with_negScores$pids_negative_unique) %>%
     group_by(rightsHolder, formatId) %>%
     summarise(n=n())
-  
+
   solr_ADC_negSubset$check_name <- examine_top_negScores$check_name[i]
-  
+
   check_summary_root_cause <- full_join(check_summary_root_cause, solr_ADC_negSubset)
-  
+
 }
 
 #write_csv(check_summary_root_cause, path = here("data", "check_this_out.csv"))
@@ -163,7 +163,7 @@ table1 <- check_summary_root_cause %>%
 
 
 # table1
-# 
+#
 # #save plot as PNG
 # #NOTE: gtsave() cannot save to PNG within Aurora. Must be saved with an HTML extension if on Aurora.
 # gtsave(data = table1,
@@ -177,7 +177,7 @@ table1 <- check_summary_root_cause %>%
 ###################################################################
 
 
-#load data package from recent EML doc as template 
+#load data package from recent EML doc as template
 pkg_template <- get_package(adc,
                             "resource_map_doi:10.18739/A2TB0XW4T",
                             file_names = TRUE)
@@ -198,7 +198,7 @@ pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=
 
 print(pid_ORIG)
 
-#load data package with most current resource map 
+#load data package with most current resource map
 pkg <- get_package(adc,
                    pid_ORIG,
                    file_names = TRUE)
@@ -231,7 +231,7 @@ pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=
 
 print(pid_ORIG)
 
-#load data package with most current resource map 
+#load data package with most current resource map
 pkg <- get_package(adc,
                    pid_ORIG,
                    file_names = TRUE)
@@ -264,7 +264,7 @@ pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=
 
 print(pid_ORIG)
 
-#load data package with most current resource map 
+#load data package with most current resource map
 pkg <- get_package(adc,
                    pid_ORIG,
                    file_names = TRUE)
@@ -297,7 +297,7 @@ pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=
 
 print(pid_ORIG)
 
-#load data package with most current resource map 
+#load data package with most current resource map
 pkg <- get_package(adc,
                    pid_ORIG,
                    file_names = TRUE)
@@ -330,7 +330,7 @@ pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=
 
 print(pid_ORIG)
 
-#load data package with most current resource map 
+#load data package with most current resource map
 pkg <- get_package(adc,
                    pid_ORIG,
                    file_names = TRUE)
@@ -363,7 +363,7 @@ pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=
 
 print(pid_ORIG)
 
-#load data package with most current resource map 
+#load data package with most current resource map
 pkg <- get_package(adc,
                    pid_ORIG,
                    file_names = TRUE)
@@ -396,7 +396,7 @@ pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=
 
 print(pid_ORIG)
 
-#load data package with most current resource map 
+#load data package with most current resource map
 pkg <- get_package(adc,
                    pid_ORIG,
                    file_names = TRUE)

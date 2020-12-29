@@ -29,7 +29,7 @@ library(here)
 #path_arctic_individual_checks <- "/home/slaughter/FAIR-suite-0.3.1/ARCTIC/check-data/fair-0.3.1-checks-joined.rda"
 
 #get path to FAIR checks for ADC data ONLY using locally stored copy at /home/cwbeltz/FAIR-Checks
-path_arctic_individual_checks <- here("data", "Individual-Checks", "raw", "fair-0.3.1-checks-joined.rda")
+path_arctic_individual_checks <- here("Data-Fellowship_FAIR-Metrics", "data", "Individual-Checks", "raw", "fair-0.3.1-checks-joined.rda")
 
 #load ADC checks
 load(file = path_arctic_individual_checks)

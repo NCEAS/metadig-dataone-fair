@@ -26,11 +26,11 @@ library(here)
 ###########################################################################################
 
 #get path to aggregate FAIR scores for ADC data ONLY using locally stored copy (updated 2020-09-08)
-path_2016_google_analytics_views <- here("data", "Google-Analytics_views", "raw", "2016-GA-Analytics Data - Sheet1.csv")
-path_2017_google_analytics_views <- here("data", "Google-Analytics_views", "raw", "2017-GA-Analytics Data - Sheet1.csv")
-path_2018_google_analytics_views <- here("data", "Google-Analytics_views", "raw", "2018-GA-Analytics Data - Sheet1.csv")
-path_2019_google_analytics_views <- here("data", "Google-Analytics_views", "raw", "2019-GA-Analytics Data - Sheet1.csv")
-path_2020_google_analytics_views <- here("data", "Google-Analytics_views", "raw", "2020-GA-Analytics Data - Sheet1.csv")
+path_2016_google_analytics_views <- here("Data-Fellowship_FAIR-Metrics", "data", "Google-Analytics_views", "raw", "2016-GA-Analytics Data - Sheet1.csv")
+path_2017_google_analytics_views <- here("Data-Fellowship_FAIR-Metrics", "data", "Google-Analytics_views", "raw", "2017-GA-Analytics Data - Sheet1.csv")
+path_2018_google_analytics_views <- here("Data-Fellowship_FAIR-Metrics", "data", "Google-Analytics_views", "raw", "2018-GA-Analytics Data - Sheet1.csv")
+path_2019_google_analytics_views <- here("Data-Fellowship_FAIR-Metrics", "data", "Google-Analytics_views", "raw", "2019-GA-Analytics Data - Sheet1.csv")
+path_2020_google_analytics_views <- here("Data-Fellowship_FAIR-Metrics", "data", "Google-Analytics_views", "raw", "2020-GA-Analytics Data - Sheet1.csv")
 
 #load aggregate FAIR scores
 google_analytics_views_2016 <- read_csv(file=path_2016_google_analytics_views)

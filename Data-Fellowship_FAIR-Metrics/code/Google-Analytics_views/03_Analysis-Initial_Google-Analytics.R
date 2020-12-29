@@ -29,7 +29,7 @@ library(here)
 ###################################################################
 
 #load common graphical parameters, based on `theme_ADC` from "github.nceas.ucsb.edu/KNB/arctic-data/blob/master/reporting/R/theme_ADC.R"
-source(here("code", "Graphical", "theme_ADC_modified.R"))
+source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modified.R"))
 
 
 
@@ -83,7 +83,7 @@ agg_GA_datasets <- nrow(agg_GA_joined)
 # Figure 8a:
 ######################################
 
-plot8a <- ggplot(agg_GA_joined, aes(x=scoreOverall, y=totalUniqueViews)) + 
+plot8a <- ggplot(agg_GA_joined, aes(x=scoreOverall, y=totalUniqueViews)) +
   geom_point() +
   geom_smooth(method="gam") +
   xlab("Overall FAIR Score") +
@@ -100,7 +100,7 @@ plot8a <- plot8a + plot_annotation(
 
 
 # plot8a
-# 
+#
 # #save plot as PNG to Aurora
 # ggsave(filename="Figure-08a_2020-11-06_Google-Analytics-with-FAIR.png",
 #        path=here("figures"),
@@ -116,7 +116,7 @@ plot8a <- plot8a + plot_annotation(
 # Figure 8b:
 ######################################
 
-plot8b <- ggplot(agg_GA_joined[agg_GA_joined$scoreOverall>0.55,], aes(x=scoreOverall, y=totalUniqueViews)) + 
+plot8b <- ggplot(agg_GA_joined[agg_GA_joined$scoreOverall>0.55,], aes(x=scoreOverall, y=totalUniqueViews)) +
   geom_point() +
   geom_smooth(method="gam") +
   xlab("Overall FAIR Score") +
@@ -133,8 +133,8 @@ plot8b <- plot8b + plot_annotation(
 
 
 # plot8b
-# 
-# 
+#
+#
 # #save plot as PNG to Aurora
 # ggsave(filename="Figure-08b_2020-11-06_Google-Analytics-with-FAIR.png",
 #        path=here("figures"),
@@ -153,7 +153,7 @@ plot8b <- plot8b + plot_annotation(
 #remove everything with less than 5 views
 agg_GA_joined_overFive <- agg_GA_joined[agg_GA_joined$totalUniqueViews>=5,]
 
-plot8c <- ggplot(agg_GA_joined_overFive, aes(x=scoreOverall, y=totalUniqueViews)) + 
+plot8c <- ggplot(agg_GA_joined_overFive, aes(x=scoreOverall, y=totalUniqueViews)) +
   geom_point() +
   geom_smooth(method="gam") +
   facet_wrap(~year)  +
@@ -171,7 +171,7 @@ plot8c <- plot8c + plot_annotation(
 
 
 # plot8c
-# 
+#
 # #save plot as PMG to Aurora
 # ggsave(filename="Figure-08c_2020-11-06_Google-Analytics-with-FAIR.png",
 #        path=here("figures"),
@@ -190,7 +190,7 @@ plot8c <- plot8c + plot_annotation(
 #remove everything with more than 10 views
 agg_GA_joined_overTen <- agg_GA_joined[agg_GA_joined$totalUniqueViews>=10,]
 
-plot8d <- ggplot(agg_GA_joined_overTen, aes(x=scoreOverall, y=totalUniqueViews)) + 
+plot8d <- ggplot(agg_GA_joined_overTen, aes(x=scoreOverall, y=totalUniqueViews)) +
   geom_point() +
   geom_smooth(method="gam") +
   xlab("Overall FAIR Score") +
@@ -207,7 +207,7 @@ plot8d <- plot8d + plot_annotation(
 
 
 # plot8d
-# 
+#
 # #save plot as JPG to Aurora
 # ggsave(filename="Figure-08d_2020-11-06_Google-Analytics-with-FAIR.jpg",
 #        path=here("figures"),

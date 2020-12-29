@@ -34,7 +34,7 @@ library(here)
 #path_arctic_aggregate_checks <- "/home/cwbeltz/FAIR-Checks/data/output_2020-09-08_check-aggregate-data.csv"
 
 #get path to aggregate FAIR scores for ADC data ONLY using locally stored copy (updated 2020-09-08)
-path_arctic_aggregate_checks <- here("data", "Aggregate-Scores", "raw", "output_2020-10-06_check-aggregate-data.csv")
+path_arctic_aggregate_checks <- here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "raw", "output_2020-10-06_check-aggregate-data.csv")
 
 #load aggregate FAIR scores
 checks_aggregate_ADC <- read_csv(file=path_arctic_aggregate_checks)
@@ -61,7 +61,7 @@ rm(path_arctic_aggregate_checks)
 ## Clean data: check for sequenceId and unique pids w/in a sequenceId  ##
 #########################################################################
 
-#NOTE: A sequenceId is the equivalent of a reverse engineered series_id and uniquely identifies a 
+#NOTE: A sequenceId is the equivalent of a reverse engineered series_id and uniquely identifies a
 #      individual entity across multiple versions/pids.
 
 

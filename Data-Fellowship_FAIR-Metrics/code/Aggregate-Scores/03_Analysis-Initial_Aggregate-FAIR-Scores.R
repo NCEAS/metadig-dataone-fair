@@ -29,7 +29,7 @@ library(here)
 ###################################################################
 
 #load common graphical parameters, based on `theme_ADC` from "github.nceas.ucsb.edu/KNB/arctic-data/blob/master/reporting/R/theme_ADC.R"
-source(here("code", "Graphical", "theme_ADC_modified.R"))
+source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modified.R"))
 
 
 
@@ -38,8 +38,8 @@ source(here("code", "Graphical", "theme_ADC_modified.R"))
 ###################################################################
 
 #load cleaned aggregate score data from 2020-10-12 created using the code chunk above
-checks_aggregate_ADC <- readRDS(here("data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
-aggChecks_clean_withCalcs <- readRDS(here("data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
+checks_aggregate_ADC <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
+aggChecks_clean_withCalcs <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
 
 
 
@@ -54,12 +54,12 @@ ggplot(aggChecks_clean_withCalcs, aes(x=overallDIFF)) +
 
 
 ###########################################################################################
-#### FIGURE 6a: 
+#### FIGURE 6a:
 ###########################################################################################
 
 
 ######################################
-# Data wrangling 
+# Data wrangling
 ######################################
 
 #subset data for initial only
@@ -120,8 +120,8 @@ plot6a <- plot.overall + plot.F + plot.A + plot.I + plot.R +
                   subtitle = '2010 - present')
 
 # plot6a
-# 
-# 
+#
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-06a_2020-10-09_AggregateScores-FAIR-ChangeOverTime-SubmissionDate.png",
 #        path=here("figures"),
@@ -134,12 +134,12 @@ plot6a <- plot.overall + plot.F + plot.A + plot.I + plot.R +
 
 
 ###########################################################################################
-#### FIGURE 6b: 
+#### FIGURE 6b:
 ###########################################################################################
 
 
 ######################################
-# Data wrangling 
+# Data wrangling
 ######################################
 
 #subset data for FINAL only
@@ -200,8 +200,8 @@ plot6b <- plot.overall + plot.F + plot.A + plot.I + plot.R +
                   subtitle = '2010 - present')
 
 # plot6b
-# 
-# 
+#
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-06b_2020-10-09_AggregateScores-FAIR-ChangeOverTime-PublicationDate.jpg",
 #        path=here("figures"),
@@ -214,7 +214,7 @@ plot6b <- plot.overall + plot.F + plot.A + plot.I + plot.R +
 
 
 ###########################################################################################
-#### FIGURE 6c: 
+#### FIGURE 6c:
 ###########################################################################################
 
 
@@ -270,8 +270,8 @@ plot6c <- plot.overall + plot.F + plot.A + plot.I + plot.R +
                   subtitle = '2016-03-21 to present')
 
 # plot6c
-# 
-# 
+#
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-06c_2020-10-09_AggregateScores-FAIR-ChangeOverTime-PublicationDate-post2016.jpg",
 #        path=here("figures"),

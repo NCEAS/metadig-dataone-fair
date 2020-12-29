@@ -31,7 +31,7 @@ library(EML)
 ###################################################################
 
 #load common graphical parameters, based on `theme_ADC` from "github.nceas.ucsb.edu/KNB/arctic-data/blob/master/reporting/R/theme_ADC.R"
-source(here("code", "Graphical", "theme_ADC_modified.R"))
+source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modified.R"))
 
 
 
@@ -72,7 +72,7 @@ indivChecks_post2016 <- indivChecks_clean_withCalcs[which(!(indivChecks_clean_wi
 #summarize pre-ADC/ACADIS data
 plotData_5_pre <- indivChecks_pre2016 %>%
   group_by(check_type, check_level, check_name, dateSplit) %>%
-  summarise(n=n(), 
+  summarise(n=n(),
             mean=mean(check_status_num)) %>%
   filter(dateSplit=="FINAL") %>%
   mutate(dateSplit = gsub("FINAL", "ACADIS", dateSplit))
@@ -81,7 +81,7 @@ plotData_5_pre <- indivChecks_pre2016 %>%
 #summarize ADC data
 plotData_5_post2016 <- indivChecks_post2016 %>%
   group_by(check_type, check_level, check_name, dateSplit) %>%
-  summarise(n=n(), 
+  summarise(n=n(),
             mean=mean(check_status_num))
 
 plotData_5_post2016$dateSplit <- factor(plotData_5_post2016$dateSplit, levels = c("INITIAL", "FINAL"))
@@ -125,7 +125,7 @@ plot5a <- ggplot(plotData_5_post2016, aes(x=mean, y=check_name %>% forcats::fct_
          )
 
 
-plot5a <- plot5a 
+plot5a <- plot5a
 
 # plot_annotation(
 #   title = 'Proportion of metadata passing individual FAIR checks',
@@ -136,8 +136,8 @@ plot5a <- plot5a
 
 
 # plot5a
-# 
-# 
+#
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-05a_2020-11-09_FAIR-IndividualChecksOverTime_post2016.png",
 #        path=here("figures"),
@@ -180,7 +180,7 @@ plot5b <- ggplot(plotData_5_post2016, aes(x=mean, y=check_name %>% forcats::fct_
   )
 
 
-plot5b <- plot5b 
+plot5b <- plot5b
 
 # plot_annotation(
 #   title = 'Proportion of metadata passing individual FAIR checks',
@@ -191,8 +191,8 @@ plot5b <- plot5b
 
 
 # plot5b
-# 
-# 
+#
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-05b_2020-11-09_FAIR-IndividualChecksOverTime_withACADIS.png",
 #        path=here("figures"),

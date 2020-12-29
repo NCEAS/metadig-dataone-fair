@@ -35,7 +35,7 @@ library(here)
 ###################################################################
 
 #load common graphical parameters, based on `theme_ADC` from "github.nceas.ucsb.edu/KNB/arctic-data/blob/master/reporting/R/theme_ADC.R"
-source(here("code", "Graphical", "theme_ADC_modified.R"))
+source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modified.R"))
 
 
 
@@ -44,8 +44,8 @@ source(here("code", "Graphical", "theme_ADC_modified.R"))
 ###################################################################
 
 #load cleaned aggregate score data from 2020-10-12 created using the code chunk above
-checks_aggregate_ADC <- readRDS(here("data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
-aggChecks_clean_withCalcs <- readRDS(here("data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
+checks_aggregate_ADC <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
+aggChecks_clean_withCalcs <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
 
 
 
@@ -64,9 +64,9 @@ preADC_seqId <- aggChecks_clean_withCalcs %>%
 
 
 #filter out datasets from before 2016-03-21 and use the dateUpload from initial metadata as submissionDate
-aggChecks_data_post2016 <- aggChecks_clean_withCalcs %>% 
-  filter(!sequenceId %in% preADC_seqId$sequenceId) %>% 
-  group_by(sequenceId) %>% 
+aggChecks_data_post2016 <- aggChecks_clean_withCalcs %>%
+  filter(!sequenceId %in% preADC_seqId$sequenceId) %>%
+  group_by(sequenceId) %>%
   summarize(dateSplit=dateSplit,
             submissionDate=dateUploaded[which(dateSplit=="INITIAL")],
             scoreOverall=scoreOverall,
@@ -92,12 +92,12 @@ cd <- query(adc, list(q = 'formatType:METADATA AND title:photogrammetric',
                       sort = 'dateUploaded+desc',
                       rows='1000000'),
             as = "data.frame")
-result <- cd %>% 
+result <- cd %>%
   filter(is.na(obsoletes))
 
 temp_index <- merge(result, checks_aggregate_ADC, by.x="id", by.y="pid")
 
-aggChecks_data_post2016_noDataTeam <- aggChecks_data_post2016 %>% 
+aggChecks_data_post2016_noDataTeam <- aggChecks_data_post2016 %>%
   filter(!sequenceId %in% temp_index$sequenceId)
 
 
@@ -113,8 +113,8 @@ aggChecks_data_post2016_noDataTeam <- aggChecks_data_post2016 %>%
 
 #calculate monthly mean scores and create a "floor date" for each month
 data_plot11 <- aggChecks_data_post2016_noDataTeam %>%
-  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>% 
-  group_by(dateSplit, date_floor) %>% 
+  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>%
+  group_by(dateSplit, date_floor) %>%
   summarize(meanOverall=mean(scoreOverall),
             meanFindable=mean(scoreFindable),
             meanAccessible=mean(scoreAccessible),
@@ -123,7 +123,7 @@ data_plot11 <- aggChecks_data_post2016_noDataTeam %>%
             n=n())
 
 #convert data to long format
-data_plot11 <- data_plot11 %>% 
+data_plot11 <- data_plot11 %>%
   pivot_longer(cols = c(meanOverall, meanFindable, meanAccessible, meanInteroperable, meanReusable),
                names_to = "type",
                values_to = "score")
@@ -140,7 +140,7 @@ data_plot11$dateSplit <- factor(data_plot11$dateSplit, levels = c("INITIAL", "FI
 
 #set graphical parameters
 colorValues <- c("meanOverall" = "black",
-                 "meanFindable" = "darkgreen", 
+                 "meanFindable" = "darkgreen",
                  "meanAccessible" = "darkblue",
                  "meanInteroperable" = "orange",
                  "meanReusable" = "firebrick")
@@ -161,16 +161,16 @@ plot11a <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction
                         labels=c("Initial Submission", "Final Publication")) +
   theme_ADC_modified +
   theme(legend.position = "top") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.5) + #metacatUI v1.13.0
   annotate("text", x = as.POSIXct('2017-02-01'), y = 0.95, label = "v1.13.0", color="dodgerblue2") +
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.5) + #metacatUI v1.14.3
   annotate("text", x = as.POSIXct('2017-09-01'), y = 0.45, label = "v1.14.3", color="dodgerblue3") +
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.5) + #metacatUI v2.0
   annotate("text", x = as.POSIXct('2018-03-01'), y = 0.92, label = "metacatUI v2.0", color="dodgerblue") +
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.5) + #metacatUI v2.6.1
   annotate("text", x = as.POSIXct('2019-05-20'), y = 0.98, label = "v2.6.1", color="dodgerblue4") +
   annotate("text",
@@ -190,18 +190,18 @@ plot11b <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2016-11-01'), 
-           y = 0.98, 
-           label = "FINDABLE", 
+  annotate("text",
+           x = as.POSIXct('2016-11-01'),
+           y = 0.98,
+           label = "FINDABLE",
            color="darkgreen",
            size=3)
 
@@ -215,18 +215,18 @@ plot11c <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2017-01-15'), 
-           y = 0.98, 
-           label = "ACCESSIBLE", 
+  annotate("text",
+           x = as.POSIXct('2017-01-15'),
+           y = 0.98,
+           label = "ACCESSIBLE",
            color="darkblue",
            size=3)
 
@@ -240,17 +240,17 @@ plot11d <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2017-05-15'), 
-           y = 0.98, 
+  annotate("text",
+           x = as.POSIXct('2017-05-15'),
+           y = 0.98,
            label = "INTEROPERABLE",
            color="orange",
            size=3)
@@ -265,18 +265,18 @@ plot11e <- ggplot(data=data_plot11, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2016-12-01'), 
-           y = 0.98, 
-           label = "REUSABLE", 
+  annotate("text",
+           x = as.POSIXct('2016-12-01'),
+           y = 0.98,
+           label = "REUSABLE",
            color="firebrick",
            size=3)
 
@@ -298,8 +298,8 @@ plot11 <- plot11a + plot11b + plot11c + plot11d + plot11e +
   #                 data current on 2020-10-12')
 
 # plot11
-# 
-# 
+#
+#
 # #save plot as PNG to Aurora
 # ggsave(filename="Figure-11_2020-11-05_AggregateScores-FAIR-NSF-MonthlyMean.png",
 #        path=here("figures"),
@@ -312,7 +312,7 @@ plot11 <- plot11a + plot11b + plot11c + plot11d + plot11e +
 
 
 ###########################################################################################
-#### FIGURE 12: Aggregate FAIR scores timeseries with a running mean 
+#### FIGURE 12: Aggregate FAIR scores timeseries with a running mean
 ###########################################################################################
 
 ######################################
@@ -320,14 +320,14 @@ plot11 <- plot11a + plot11b + plot11c + plot11d + plot11e +
 ######################################
 
 #split data into initial and final versions for each dataset
-fig12_data_initial <- aggChecks_data_post2016_noDataTeam %>% 
-  filter(dateSplit=="INITIAL") %>% 
-  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>% 
+fig12_data_initial <- aggChecks_data_post2016_noDataTeam %>%
+  filter(dateSplit=="INITIAL") %>%
+  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>%
   arrange(submissionDate)
 
-fig12_data_final <- aggChecks_data_post2016_noDataTeam %>% 
-  filter(dateSplit=="FINAL") %>% 
-  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>% 
+fig12_data_final <- aggChecks_data_post2016_noDataTeam %>%
+  filter(dateSplit=="FINAL") %>%
+  mutate(date_floor = lubridate::floor_date(submissionDate, "1 month")) %>%
   arrange(submissionDate)
 
 
@@ -405,7 +405,7 @@ data_plot12$meanReusable_running[data_plot12$dateSplit=="FINAL"] <- runner::runn
 
 
 #convert to longer format data
-data_plot12 <- data_plot12 %>% 
+data_plot12 <- data_plot12 %>%
   pivot_longer(cols = c(meanOverall_running, meanFindable_running, meanAccessible_running, meanInteroperable_running, meanReusable_running),
                names_to = "type",
                values_to = "score")
@@ -422,7 +422,7 @@ data_plot12$dateSplit <- factor(data_plot12$dateSplit, levels = c("INITIAL", "FI
 
 #set graphic parameters
 colorValues <- c("meanOverall_running" = "black",
-                 "meanFindable_running" = "darkgreen", 
+                 "meanFindable_running" = "darkgreen",
                  "meanAccessible_running" = "darkblue",
                  "meanInteroperable_running" = "orange",
                  "meanReusable_running" = "firebrick")
@@ -430,7 +430,7 @@ colorValues <- c("meanOverall_running" = "black",
 lineValues <- c("FINAL" = "solid", "INITIAL" = "dotted")
 
 
-#plot 1 of 5 panels 
+#plot 1 of 5 panels
 plot12a <- ggplot(data=data_plot12, aes(x=date_floor, y=score)) +
   geom_line(data=data_plot12[which(data_plot12$type=="meanOverall_running"),], aes(linetype=dateSplit), color="black") +
   ylim(0,1) +
@@ -444,16 +444,16 @@ plot12a <- ggplot(data=data_plot12, aes(x=date_floor, y=score)) +
                         labels=c("Initial Submission", "Final Publication")) +
   theme_ADC_modified +
   theme(legend.position = "top") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.5) + #metacatUI v1.13.0
   annotate("text", x = as.POSIXct('2017-02-01'), y = 0.95, label = "v1.13.0", color="dodgerblue2") +
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.5) + #metacatUI v1.14.3
   annotate("text", x = as.POSIXct('2017-09-01'), y = 0.80, label = "v1.14.3", color="dodgerblue3") +
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.5) + #metacatUI v2.0
   annotate("text", x = as.POSIXct('2018-03-01'), y = 0.92, label = "metacatUI v2.0", color="dodgerblue") +
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.5) + #metacatUI v2.6.1
   annotate("text", x = as.POSIXct('2019-05-20'), y = 0.98, label = "v2.6.1", color="dodgerblue4") +
   annotate("text",
@@ -474,18 +474,18 @@ plot12b <- ggplot(data=data_plot12, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2016-11-01'), 
-           y = 0.98, 
-           label = "FINDABLE", 
+  annotate("text",
+           x = as.POSIXct('2016-11-01'),
+           y = 0.98,
+           label = "FINDABLE",
            color="darkgreen",
            size=3)
 
@@ -500,18 +500,18 @@ plot12c <- ggplot(data=data_plot12, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2017-01-15'), 
-           y = 0.98, 
-           label = "ACCESSIBLE", 
+  annotate("text",
+           x = as.POSIXct('2017-01-15'),
+           y = 0.98,
+           label = "ACCESSIBLE",
            color="darkblue",
            size=3)
 
@@ -526,17 +526,17 @@ plot12d <- ggplot(data=data_plot12, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2017-05-15'), 
-           y = 0.98, 
+  annotate("text",
+           x = as.POSIXct('2017-05-15'),
+           y = 0.98,
            label = "INTEROPERABLE",
            color="orange",
            size=3)
@@ -552,18 +552,18 @@ plot12e <- ggplot(data=data_plot12, aes(x=date_floor, y=score, group=interaction
   scale_linetype_manual(values=lineValues) +
   theme_ADC_modified +
   theme(legend.position = "none") +
-  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2016-11-17"), linetype="longdash",
              color = "dodgerblue2", size=0.3) + #metacatUI v1.13.0
-  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2017-06-23"), linetype="longdash",
              color = "dodgerblue3", size=0.3) + #metacatUI v1.14.3
-  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2018-07-09"), linetype="longdash",
              color = "dodgerblue", size=0.3) + #metacatUI v2.0
-  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash", 
+  geom_vline(xintercept = as.POSIXct("2019-03-20"), linetype="longdash",
              color = "dodgerblue4", size=0.3) + #metacatUI v2.6.1
-  annotate("text", 
-           x = as.POSIXct('2016-12-01'), 
-           y = 0.98, 
-           label = "REUSABLE", 
+  annotate("text",
+           x = as.POSIXct('2016-12-01'),
+           y = 0.98,
+           label = "REUSABLE",
            color="firebrick",
            size=3)
 
@@ -585,9 +585,9 @@ plot12 <- plot12a + plot12b + plot12c + plot12d + plot12e +
   #                 data current on 2020-10-12')
 
 # plot12
-# 
-# 
-# 
+#
+#
+#
 # #save plot as PNG to Aurora
 # ggsave(filename="Figure-12_2020-11-05_AggregateScores-FAIR-RunningMean.png",
 #        path=here("figures"),

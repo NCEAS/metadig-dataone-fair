@@ -29,7 +29,7 @@ library(here)
 ###################################################################
 
 #load common graphical parameters, based on `theme_ADC` from "github.nceas.ucsb.edu/KNB/arctic-data/blob/master/reporting/R/theme_ADC.R"
-source(here("code", "Graphical", "theme_ADC_modified.R"))
+source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modified.R"))
 
 
 
@@ -38,8 +38,8 @@ source(here("code", "Graphical", "theme_ADC_modified.R"))
 ###################################################################
 
 #load cleaned aggregate score data from 2020-10-12 created using the code chunk above
-checks_aggregate_ADC <- readRDS(here("data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
-aggChecks_clean_withCalcs <- readRDS(here("data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
+checks_aggregate_ADC <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
+aggChecks_clean_withCalcs <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
 
 
 
@@ -63,7 +63,7 @@ preADC_datasets <- nrow(preADC_seqId)
 
 
 ###########################################################################################
-#### FIGURE 7a: 
+#### FIGURE 7a:
 ###########################################################################################
 
 
@@ -73,7 +73,7 @@ preADC_datasets <- nrow(preADC_seqId)
 
 #get mean of initial and final scores for post-2016 datasets
 plotData_7 <- aggChecks_post2016 %>%
-  group_by(dateSplit) %>% 
+  group_by(dateSplit) %>%
   summarise(OVERALL = mean(scoreOverall),
             Findable = mean(scoreFindable),
             Accessible = mean(scoreAccessible),
@@ -127,11 +127,11 @@ plot7a <- ggplot(plotData_7, aes(x=meanScore, y=scoreType)) +
 #   subtitle = 'for the Arctic Data Center (2016-03-21 to present)',
 #   caption = 'updated 2020-11-05
 #   data current on 2020-10-12')
-# 
+#
 
 # plot7a
-# 
-# 
+#
+#
 # #save plot as PNG to Aurora
 # ggsave(filename="Figure-07a_2020-11-05_AggregateScores-FAIR-Simple.png",
 #        path=here("figures"),
@@ -154,7 +154,7 @@ plot7a <- ggplot(plotData_7, aes(x=meanScore, y=scoreType)) +
 
 #summarize the RAW initial and final scores for pre-2016 data
 plotData_7_pre2016 <- aggChecks_pre2016 %>%
-  group_by(dateSplit) %>% 
+  group_by(dateSplit) %>%
   summarise(OVERALL = mean(scoreOverall),
             Findable = mean(scoreFindable),
             Accessible = mean(scoreAccessible),
@@ -196,7 +196,7 @@ plot7b <- ggplot(plotData_7, aes(x=meanScore, y=scoreType)) +
   theme(legend.position = "top",
         legend.background = element_blank(),
         legend.box.background = element_rect(colour = "black")) +
-  guides(size = FALSE, 
+  guides(size = FALSE,
          fill = guide_legend(override.aes = list(size = 3)))
 
 
@@ -209,8 +209,8 @@ plot7b <- plot7b + plot_annotation(
 
 
 # plot7b
-# 
-# 
+#
+#
 # #save plot as PNG to Aurora
 # ggsave(filename="Figure-07b_2020-11-05_AggregateScores-FAIR-Simple.png",
 #        path=here("figures"),

@@ -29,7 +29,7 @@ library(here)
 ###################################################################
 
 #load common graphical parameters, based on `theme_ADC` from "github.nceas.ucsb.edu/KNB/arctic-data/blob/master/reporting/R/theme_ADC.R"
-source(here("code", "Graphical", "theme_ADC_modified.R"))
+source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modified.R"))
 
 
 
@@ -40,7 +40,7 @@ source(here("code", "Graphical", "theme_ADC_modified.R"))
 # #THIS TAKES ~11 MINUTES TO RUN ON AURORA. FOR CONVENIENCE USE THE ARCHIVED DATA IN THE NEXT CODE CHUCK STARTING ON LINE 42.
 # #Load and clean individual check data
 # source(here("code", "01a_Cleaning_Individual-FAIR-Checks.R"), local = knitr::knit_global()) #This takes ~30 seconds on Aurora.
-# 
+#
 # #Subset cleaned data to include only original first/last versions (i.e., metadata submission and final publication), calculate change in FAIR checks over time, and calculated length of curation time (i.e., submission length).
 # source(here("code", "02a_Calculation_Individual-FAIR-Checks.R"), local = knitr::knit_global()) #This takes ~10 minutes on Aurora
 
@@ -59,14 +59,14 @@ remove_series_id <- readRDS(here("data", "Individual-Checks", "cleaned", "remove
 #calculate mean proportion of datasets passing each check for all data
 plotData_1_all <- indivChecks_clean_withCalcs %>%
   group_by(check_type, check_level, check_name, dateSplit) %>%
-  summarise(n=n(), 
+  summarise(n=n(),
             mean=mean(check_status_num))
 
 #calculate mean proportion of datasets passing checks for data finalized in 2020
 plotData_1_2020 <- indivChecks_clean_withCalcs %>%
   filter(dateSplit=="FINAL", year==2020) %>%
   group_by(year, check_type, check_level,check_id, check_name, dateSplit) %>%
-  summarise(n=n(), 
+  summarise(n=n(),
             mean=mean(check_status_num))
 
 #change sequence split to "2020" for final year data
@@ -110,7 +110,7 @@ plot_1 <- ggplot(plotData_1_all, aes(x=mean, y=check_name %>% forcats::fct_reord
   theme(legend.position = "top",
         legend.background = element_blank(),
         legend.box.background = element_rect(colour = "black")) +
-  guides(size = FALSE, 
+  guides(size = FALSE,
          fill = guide_legend(override.aes = list(size = 4)))
 
 
@@ -121,8 +121,8 @@ plot1 <- plot_1 + plot_annotation(
 
 
 # plot1
-# 
-# 
+#
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-01_2020-09-30_FAIR-IndividualChecksOverTime.jpg",
 #        path=here("figures"),
@@ -134,7 +134,7 @@ plot1 <- plot_1 + plot_annotation(
 
 
 ###################################################################
-#### Figure 2: 
+#### Figure 2:
 ###################################################################
 
 #Figure 2a: Histogram with removed categories highlighted
@@ -215,10 +215,10 @@ plot2b_hist <- ggplot(plotData_2b, aes(x=removeSplit, y=count_series_id, fill=re
 
 
 #Combine figures 2a and 2b
-plot2_combo <- plot2a_hist + annotation_custom(ggplotGrob(plot2b_hist), 
-                                               xmin = parse_datetime("2010-03-01T00:00:00Z"), 
-                                               xmax = parse_datetime("2014-01-01T00:00:00Z"), 
-                                               ymin = 2000, 
+plot2_combo <- plot2a_hist + annotation_custom(ggplotGrob(plot2b_hist),
+                                               xmin = parse_datetime("2010-03-01T00:00:00Z"),
+                                               xmax = parse_datetime("2014-01-01T00:00:00Z"),
+                                               ymin = 2000,
                                                ymax = 4000)
 
 
@@ -232,7 +232,7 @@ plot2_combo <- plot2_combo + plot_annotation(
 
 
 # plot2_combo
-# 
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-02_2020-11-06_DataRemoved.jpg",
 #        path=here("figures"),
@@ -244,7 +244,7 @@ plot2_combo <- plot2_combo + plot_annotation(
 
 
 ###################################################################
-#### Figure 3: 
+#### Figure 3:
 ###################################################################
 
 #create dataset to plot at the check_name/check_id level
@@ -290,7 +290,7 @@ plot3 <- plot3 + plot_annotation(
 
 
 # plot3
-# 
+#
 # #save plot as JPG to aurora
 # ggsave(filename="Figure-03_2020-09-30_CalculatedChangeOfIndividualDocs.jpg",
 #        path=here("figures"),
@@ -321,7 +321,7 @@ plot4_data <- indivChecks_clean_withCalcs %>%
   theme(axis.text=element_text(size=14),
         axis.title=element_text(size=15,face="bold"))
 
-  
+
 plot4 <- plot4 + plot_annotation(
   title = 'Number of submissions for all deteriorating checks for "Entity Type Present"',
   subtitle = 'across the entire ADC corpus',
@@ -331,7 +331,7 @@ plot4 <- plot4 + plot_annotation(
 
 
 # plot4
-# 
+#
 # #save plot as PNG to aurora
 # ggsave(filename="Figure-04_2020-09-28_SubmissionDateEntityTypePresent.jpg",
 #        path=here("figures"),
