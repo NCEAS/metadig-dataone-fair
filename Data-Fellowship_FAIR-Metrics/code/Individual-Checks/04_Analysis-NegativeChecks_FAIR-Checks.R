@@ -172,247 +172,247 @@ table1 <- check_summary_root_cause %>%
 
 
 
-###################################################################
-#### Manually investigate ISO and EML docs with negative checks
-###################################################################
-
-
-#load data package from recent EML doc as template
-pkg_template <- get_package(adc,
-                            "resource_map_doi:10.18739/A2TB0XW4T",
-                            file_names = TRUE)
-
-doc_template <- read_eml(getObject(adc, pkg_template$metadata))
-
-
-
-######################################
-# CHECK: "Entity Type Present"
-######################################
-
-print("Entity Type Present")
-
-sum(pids_negChecks$check_name=="Entity Type Present")
-
-pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Type Present")][333]
-
-print(pid_ORIG)
-
-#load data package with most current resource map
-pkg <- get_package(adc,
-                   pid_ORIG,
-                   file_names = TRUE)
-
-all_rm_versions <- get_all_versions(adc, pkg$resource_map)
-rm_pid <- all_rm_versions[length(all_rm_versions)]
-
-pkg2 <- get_package(adc,
-                    rm_pid,
-                    file_names = TRUE)
-
-#load EML and data file
-EntityType_doc_initial <- read_eml(getObject(adc, pkg$metadata))
-EntityType_doc_final <- read_eml(getObject(adc, pkg2$metadata))
-
-#print DOI
-print(EntityType_doc_final$packageId)
-
-
-
-######################################
-#CHECK: "Resource Revision Date Present"
-######################################
-
-print("Resource Revision Date Present")
-
-sum(pids_negChecks$check_name=="Resource Revision Date Present")
-
-pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Resource Revision Date Present")][333]
-
-print(pid_ORIG)
-
-#load data package with most current resource map
-pkg <- get_package(adc,
-                   pid_ORIG,
-                   file_names = TRUE)
-
-all_rm_versions <- get_all_versions(adc, pkg$resource_map)
-rm_pid <- all_rm_versions[length(all_rm_versions)]
-
-pkg2 <- get_package(adc,
-                    rm_pid,
-                    file_names = TRUE)
-
-#load EML and data file
-ResourceRevisionDate_doc_initial <- read_eml(getObject(adc, pkg$metadata))
-ResourceRevisionDate_doc_final <- read_eml(getObject(adc, pkg2$metadata))
-
-#print DOI
-print(ResourceRevisionDate_doc_final$packageId)
-
-
-
-######################################
-#CHECK: "Entity Identifier Type Present"
-######################################
-
-print("Entity Identifier Type Present")
-
-sum(pids_negChecks$check_name=="Entity Identifier Type Present")
-
-pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Identifier Type Present")][333]
-
-print(pid_ORIG)
-
-#load data package with most current resource map
-pkg <- get_package(adc,
-                   pid_ORIG,
-                   file_names = TRUE)
-
-all_rm_versions <- get_all_versions(adc, pkg$resource_map)
-rm_pid <- all_rm_versions[length(all_rm_versions)]
-
-pkg2 <- get_package(adc,
-                    rm_pid,
-                    file_names = TRUE)
-
-#load EML and data file
-EntityIdentifierType_doc_initial <- read_eml(getObject(adc, pkg$metadata))
-EntityIdentifierType_doc_final <- read_eml(getObject(adc, pkg2$metadata))
-
-#print DOI
-print(EntityIdentifierType_doc_final$packageId)
-
-
-
-######################################
-#CHECK: "Entity Identifier Present (R)"
-######################################
-
-print("Entity Identifier Present (R)")
-
-sum(pids_negChecks$check_name=="Entity Identifier Present (R)")
-
-pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Identifier Present (R)")][333]
-
-print(pid_ORIG)
-
-#load data package with most current resource map
-pkg <- get_package(adc,
-                   pid_ORIG,
-                   file_names = TRUE)
-
-all_rm_versions <- get_all_versions(adc, pkg$resource_map)
-rm_pid <- all_rm_versions[length(all_rm_versions)]
-
-pkg2 <- get_package(adc,
-                    rm_pid,
-                    file_names = TRUE)
-
-#load EML and data file
-EntityIdentifier.R_doc_initial <- read_eml(getObject(adc, pkg$metadata))
-EntityIdentifier.R_doc_final <- read_eml(getObject(adc, pkg2$metadata))
-
-#print DOI
-print(EntityIdentifier.R_doc_final$packageId)
-
-
-
-######################################
-#CHECK: "Non proprietary entity format (R)"
-######################################
-
-print("Non proprietary entity format (R)")
-
-sum(pids_negChecks$check_name=="Non proprietary entity format (R)")
-
-pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Non proprietary entity format (R)")][333]
-
-print(pid_ORIG)
-
-#load data package with most current resource map
-pkg <- get_package(adc,
-                   pid_ORIG,
-                   file_names = TRUE)
-
-all_rm_versions <- get_all_versions(adc, pkg$resource_map)
-rm_pid <- all_rm_versions[length(all_rm_versions)]
-
-pkg2 <- get_package(adc,
-                    rm_pid,
-                    file_names = TRUE)
-
-#load EML and data file
-NonPropEntity.R_doc_initial <- read_eml(getObject(adc, pkg$metadata))
-NonPropEntity.R_doc_final <- read_eml(getObject(adc, pkg2$metadata))
-
-#print DOI
-print(NonPropEntity.R_doc_final$packageId)
-
-
-
-######################################
-#CHECK: "Entity Format Present (R)"
-######################################
-
-print("Entity Format Present (R)")
-
-sum(pids_negChecks$check_name=="Entity Format Present (R)")
-
-pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Format Present (R)")][333]
-
-print(pid_ORIG)
-
-#load data package with most current resource map
-pkg <- get_package(adc,
-                   pid_ORIG,
-                   file_names = TRUE)
-
-all_rm_versions <- get_all_versions(adc, pkg$resource_map)
-rm_pid <- all_rm_versions[length(all_rm_versions)]
-
-pkg2 <- get_package(adc,
-                    rm_pid,
-                    file_names = TRUE)
-
-#load EML and data file
-EntityFormat.R_doc_initial <- read_eml(getObject(adc, pkg$metadata))
-EntityFormat.R_doc_final <- read_eml(getObject(adc, pkg2$metadata))
-
-#print DOI
-print(EntityFormat.R_doc_final$packageId)
-
-
-
-######################################
-#CHECK: "Entity Distribution URL Resolvable (R)"
-######################################
-
-print("Entity Distribution URL Resolvable (R)")
-
-sum(pids_negChecks$check_name=="Entity Distribution URL Resolvable (R)")
-
-pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Distribution URL Resolvable (R)")][333]
-
-print(pid_ORIG)
-
-#load data package with most current resource map
-pkg <- get_package(adc,
-                   pid_ORIG,
-                   file_names = TRUE)
-
-all_rm_versions <- get_all_versions(adc, pkg$resource_map)
-rm_pid <- all_rm_versions[length(all_rm_versions)]
-
-pkg2 <- get_package(adc,
-                    rm_pid,
-                    file_names = TRUE)
-
-#load EML and data file
-EntityDistURL_doc_initial <- read_eml(getObject(adc, pkg$metadata))
-EntityDistURL_doc_final <- read_eml(getObject(adc, pkg2$metadata))
-
-#print DOI
-print(EntityDistURL_doc_final$packageId)
+# ###################################################################
+# #### Manually investigate ISO and EML docs with negative checks
+# ###################################################################
+#
+#
+# #load data package from recent EML doc as template
+# pkg_template <- get_package(adc,
+#                             "resource_map_doi:10.18739/A2TB0XW4T",
+#                             file_names = TRUE)
+#
+# doc_template <- read_eml(getObject(adc, pkg_template$metadata))
+#
+#
+#
+# ######################################
+# # CHECK: "Entity Type Present"
+# ######################################
+#
+# print("Entity Type Present")
+#
+# sum(pids_negChecks$check_name=="Entity Type Present")
+#
+# pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Type Present")][333]
+#
+# print(pid_ORIG)
+#
+# #load data package with most current resource map
+# pkg <- get_package(adc,
+#                    pid_ORIG,
+#                    file_names = TRUE)
+#
+# all_rm_versions <- get_all_versions(adc, pkg$resource_map)
+# rm_pid <- all_rm_versions[length(all_rm_versions)]
+#
+# pkg2 <- get_package(adc,
+#                     rm_pid,
+#                     file_names = TRUE)
+#
+# #load EML and data file
+# EntityType_doc_initial <- read_eml(getObject(adc, pkg$metadata))
+# EntityType_doc_final <- read_eml(getObject(adc, pkg2$metadata))
+#
+# #print DOI
+# print(EntityType_doc_final$packageId)
+#
+#
+#
+# ######################################
+# #CHECK: "Resource Revision Date Present"
+# ######################################
+#
+# print("Resource Revision Date Present")
+#
+# sum(pids_negChecks$check_name=="Resource Revision Date Present")
+#
+# pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Resource Revision Date Present")][333]
+#
+# print(pid_ORIG)
+#
+# #load data package with most current resource map
+# pkg <- get_package(adc,
+#                    pid_ORIG,
+#                    file_names = TRUE)
+#
+# all_rm_versions <- get_all_versions(adc, pkg$resource_map)
+# rm_pid <- all_rm_versions[length(all_rm_versions)]
+#
+# pkg2 <- get_package(adc,
+#                     rm_pid,
+#                     file_names = TRUE)
+#
+# #load EML and data file
+# ResourceRevisionDate_doc_initial <- read_eml(getObject(adc, pkg$metadata))
+# ResourceRevisionDate_doc_final <- read_eml(getObject(adc, pkg2$metadata))
+#
+# #print DOI
+# print(ResourceRevisionDate_doc_final$packageId)
+#
+#
+#
+# ######################################
+# #CHECK: "Entity Identifier Type Present"
+# ######################################
+#
+# print("Entity Identifier Type Present")
+#
+# sum(pids_negChecks$check_name=="Entity Identifier Type Present")
+#
+# pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Identifier Type Present")][333]
+#
+# print(pid_ORIG)
+#
+# #load data package with most current resource map
+# pkg <- get_package(adc,
+#                    pid_ORIG,
+#                    file_names = TRUE)
+#
+# all_rm_versions <- get_all_versions(adc, pkg$resource_map)
+# rm_pid <- all_rm_versions[length(all_rm_versions)]
+#
+# pkg2 <- get_package(adc,
+#                     rm_pid,
+#                     file_names = TRUE)
+#
+# #load EML and data file
+# EntityIdentifierType_doc_initial <- read_eml(getObject(adc, pkg$metadata))
+# EntityIdentifierType_doc_final <- read_eml(getObject(adc, pkg2$metadata))
+#
+# #print DOI
+# print(EntityIdentifierType_doc_final$packageId)
+#
+#
+#
+# ######################################
+# #CHECK: "Entity Identifier Present (R)"
+# ######################################
+#
+# print("Entity Identifier Present (R)")
+#
+# sum(pids_negChecks$check_name=="Entity Identifier Present (R)")
+#
+# pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Identifier Present (R)")][333]
+#
+# print(pid_ORIG)
+#
+# #load data package with most current resource map
+# pkg <- get_package(adc,
+#                    pid_ORIG,
+#                    file_names = TRUE)
+#
+# all_rm_versions <- get_all_versions(adc, pkg$resource_map)
+# rm_pid <- all_rm_versions[length(all_rm_versions)]
+#
+# pkg2 <- get_package(adc,
+#                     rm_pid,
+#                     file_names = TRUE)
+#
+# #load EML and data file
+# EntityIdentifier.R_doc_initial <- read_eml(getObject(adc, pkg$metadata))
+# EntityIdentifier.R_doc_final <- read_eml(getObject(adc, pkg2$metadata))
+#
+# #print DOI
+# print(EntityIdentifier.R_doc_final$packageId)
+#
+#
+#
+# ######################################
+# #CHECK: "Non proprietary entity format (R)"
+# ######################################
+#
+# print("Non proprietary entity format (R)")
+#
+# sum(pids_negChecks$check_name=="Non proprietary entity format (R)")
+#
+# pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Non proprietary entity format (R)")][333]
+#
+# print(pid_ORIG)
+#
+# #load data package with most current resource map
+# pkg <- get_package(adc,
+#                    pid_ORIG,
+#                    file_names = TRUE)
+#
+# all_rm_versions <- get_all_versions(adc, pkg$resource_map)
+# rm_pid <- all_rm_versions[length(all_rm_versions)]
+#
+# pkg2 <- get_package(adc,
+#                     rm_pid,
+#                     file_names = TRUE)
+#
+# #load EML and data file
+# NonPropEntity.R_doc_initial <- read_eml(getObject(adc, pkg$metadata))
+# NonPropEntity.R_doc_final <- read_eml(getObject(adc, pkg2$metadata))
+#
+# #print DOI
+# print(NonPropEntity.R_doc_final$packageId)
+#
+#
+#
+# ######################################
+# #CHECK: "Entity Format Present (R)"
+# ######################################
+#
+# print("Entity Format Present (R)")
+#
+# sum(pids_negChecks$check_name=="Entity Format Present (R)")
+#
+# pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Format Present (R)")][333]
+#
+# print(pid_ORIG)
+#
+# #load data package with most current resource map
+# pkg <- get_package(adc,
+#                    pid_ORIG,
+#                    file_names = TRUE)
+#
+# all_rm_versions <- get_all_versions(adc, pkg$resource_map)
+# rm_pid <- all_rm_versions[length(all_rm_versions)]
+#
+# pkg2 <- get_package(adc,
+#                     rm_pid,
+#                     file_names = TRUE)
+#
+# #load EML and data file
+# EntityFormat.R_doc_initial <- read_eml(getObject(adc, pkg$metadata))
+# EntityFormat.R_doc_final <- read_eml(getObject(adc, pkg2$metadata))
+#
+# #print DOI
+# print(EntityFormat.R_doc_final$packageId)
+#
+#
+#
+# ######################################
+# #CHECK: "Entity Distribution URL Resolvable (R)"
+# ######################################
+#
+# print("Entity Distribution URL Resolvable (R)")
+#
+# sum(pids_negChecks$check_name=="Entity Distribution URL Resolvable (R)")
+#
+# pid_ORIG <- pids_negChecks$pids_negative_unique[which(pids_negChecks$check_name=="Entity Distribution URL Resolvable (R)")][333]
+#
+# print(pid_ORIG)
+#
+# #load data package with most current resource map
+# pkg <- get_package(adc,
+#                    pid_ORIG,
+#                    file_names = TRUE)
+#
+# all_rm_versions <- get_all_versions(adc, pkg$resource_map)
+# rm_pid <- all_rm_versions[length(all_rm_versions)]
+#
+# pkg2 <- get_package(adc,
+#                     rm_pid,
+#                     file_names = TRUE)
+#
+# #load EML and data file
+# EntityDistURL_doc_initial <- read_eml(getObject(adc, pkg$metadata))
+# EntityDistURL_doc_final <- read_eml(getObject(adc, pkg2$metadata))
+#
+# #print DOI
+# print(EntityDistURL_doc_final$packageId)
 
 

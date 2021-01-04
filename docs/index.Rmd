@@ -13,6 +13,8 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
 ```
 
 
@@ -20,9 +22,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ####################################################
 # load previous analyses for INDIVIDUAL FAIR CHECKS
 ####################################################
-source(here::here("code", "Individual-Checks", "03_Analysis-Initial_FAIR-Checks.R"))
-source(here::here("code", "Individual-Checks", "04_Analysis-NegativeChecks_FAIR-Checks.R"))
-source(here::here("code", "Individual-Checks", "05_Analysis-CurationPractices_FAIR-Checks.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Individual-Checks", "03_Analysis-Initial_FAIR-Checks.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Individual-Checks", "04_Analysis-NegativeChecks_FAIR-Checks.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Individual-Checks", "05_Analysis-CurationPractices_FAIR-Checks.R"))
 ```
 
 
@@ -30,17 +32,17 @@ source(here::here("code", "Individual-Checks", "05_Analysis-CurationPractices_FA
 ####################################################
 # load previous analyses for AGGREGATE FAIR SCORES
 ####################################################
-source(here::here("code", "Aggregate-Scores", "04_Analysis-Simple_Aggregate-FAIR-Scores.R"))
-source(here::here("code", "Aggregate-Scores", "05_Analysis-gganimate_Aggregate-FAIR-Scores.R"))
-source(here::here("code", "Aggregate-Scores", "06_Analysis-NSF_Aggregate-FAIR-Scores.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Aggregate-Scores", "04_Analysis-Simple_Aggregate-FAIR-Scores.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Aggregate-Scores", "05_Analysis-gganimate_Aggregate-FAIR-Scores.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Aggregate-Scores", "06_Analysis-NSF_Aggregate-FAIR-Scores.R"))
 ```
 
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
 ####################################################
-# load previous analyses for AGGREGATE FAIR SCORES
+# load previous analyses for GOOGLE ANALYTICS DATA
 ####################################################
-source(here::here("code", "Google-Analytics_views", "03_Analysis-Initial_Google-Analytics.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Google-Analytics_views", "03_Analysis-Initial_Google-Analytics.R"))
 ```
 
 

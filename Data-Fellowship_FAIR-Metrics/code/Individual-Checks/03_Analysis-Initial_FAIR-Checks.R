@@ -46,9 +46,9 @@ source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modi
 
 
 #load cleaned individual check data from 2020-09-30 created using the code chunk above
-checks_individual_ADC <- readRDS(here("data", "Individual-Checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
-indivChecks_clean_withCalcs <- readRDS(here("data", "Individual-Checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
-remove_series_id <- readRDS(here("data", "Individual-Checks", "cleaned", "remove_series_id_2020-09-30.rds"))
+checks_individual_ADC <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Individual-Checks", "cleaned", "checks_individual_ADC_2020-09-30.rds"))
+indivChecks_clean_withCalcs <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Individual-Checks", "cleaned", "indivChecks_clean_2020-09-30.rds"))
+remove_series_id <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Individual-Checks", "cleaned", "remove_series_id_2020-09-30.rds"))
 
 
 

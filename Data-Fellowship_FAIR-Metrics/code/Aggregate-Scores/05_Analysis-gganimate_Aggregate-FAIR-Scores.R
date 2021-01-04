@@ -39,8 +39,8 @@ source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modi
 ###################################################################
 
 #load cleaned aggregate score data from 2020-10-12 created using the code chunk above
-checks_aggregate_ADC <- readRDS(here("data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
-aggChecks_clean_withCalcs <- readRDS(here("data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
+checks_aggregate_ADC <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
+aggChecks_clean_withCalcs <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
 
 
 

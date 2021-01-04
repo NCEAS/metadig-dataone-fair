@@ -38,11 +38,11 @@ source(here("Data-Fellowship_FAIR-Metrics", "code", "Graphical", "theme_ADC_modi
 ###################################################################
 
 #load cleaned Google analytics data from 2020-10-15 using the code above
-GA_views_clean <- readRDS(here("data", "Google-Analytics_views", "cleaned", "GA_views_clean_2020-10-15.rds"))
+GA_views_clean <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Google-Analytics_views", "cleaned", "GA_views_clean_2020-10-15.rds"))
 
 #load cleaned aggregate score data from 2020-10-12 created using the code chunk above
-checks_aggregate_ADC <- readRDS(here("data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
-aggChecks_clean_withCalcs <- readRDS(here("data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
+checks_aggregate_ADC <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "checks_aggregate_ADC_2020-10-12.rds"))
+aggChecks_clean_withCalcs <- readRDS(here("Data-Fellowship_FAIR-Metrics", "data", "Aggregate-Scores", "cleaned", "aggChecks_clean_2020-10-12.rds"))
 
 
 
