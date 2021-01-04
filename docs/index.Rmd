@@ -1,0 +1,321 @@
+---
+title: |
+  ![](../images/logo_ADC.png){width=1in} FAIR Analysis of the ADC Data Holdings
+author: "Christopher Beltz"
+date: "2020-11-19"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    in_header: header.html
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+```
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+####################################################
+# load previous analyses for INDIVIDUAL FAIR CHECKS
+####################################################
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Individual-Checks", "03_Analysis-Initial_FAIR-Checks.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Individual-Checks", "04_Analysis-NegativeChecks_FAIR-Checks.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Individual-Checks", "05_Analysis-CurationPractices_FAIR-Checks.R"))
+```
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+####################################################
+# load previous analyses for AGGREGATE FAIR SCORES
+####################################################
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Aggregate-Scores", "04_Analysis-Simple_Aggregate-FAIR-Scores.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Aggregate-Scores", "05_Analysis-gganimate_Aggregate-FAIR-Scores.R"))
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Aggregate-Scores", "06_Analysis-NSF_Aggregate-FAIR-Scores.R"))
+```
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+####################################################
+# load previous analyses for GOOGLE ANALYTICS DATA
+####################################################
+source(here::here("Data-Fellowship_FAIR-Metrics", "code", "Google-Analytics_views", "03_Analysis-Initial_Google-Analytics.R"))
+```
+
+
+
+## **1. Overview**
+
+*The FAIR Data Principles are a set of guidelines that are meant to enhance the ability to find, access, integrate, and re-use data.* The acronym, FAIR, stands for Findable, Accessible, Interoperable, and Reusable; each category highlights a critical component in the reproducibility of results and re-usability of data. There are 15 core principles spread across the four categories and are described in more detail by the [FORCE11](https://www.force11.org/group/fairgroup/fairprinciples) community, a group focused on "Improving Future Research Communication and e-Scholarship".
+
+>"These high-level FAIR Guiding Principles precede implementation choices, and do not suggest any specific technology, standard, or implementation-solution; moreover, the Principles are not, themselves, a standard or a specification. They act as a guide to data publishers and stewards to assist them in evaluating whether their particular implementation choices are rendering their digital research artefacts Findable, Accessible, Interoperable, and Reusable."
+>
+> `r tufte::quote_footer("[Wilkinson et al., 2016](https://doi.org/10.1038/sdata.2016.18)")`
+
+  [DataONE](https://www.dataone.org/fair/) and the [Arctic Data Center (ADC)](https://arcticdata.io/catalog/profile) implement FAIR principles through 51 checks for individual pieces of information within the relevant metadata record. All of the checks return values of TRUE/FALSE and include the assessment of presence, length, and content among several other kinds. These 51 checks are spread across the four FAIR categories and are used to assess both the overall score, as well as aggregate score of a single category.
+  
+  FAIR scores are calculated in two ways: overall - across each FAIR category, and within a FAIR category. The FAIR scores are calculated using the [algorithm](https://github.com/NCEAS/metadig-checks/issues/155) below, using the Required and Optional checks for each category. The overall scores is calculated using the same algorithm, but is calculated across all checks.
+  
+  $$score_{overall} = \frac{R_{pass} + O_{pass}}{R_{pass} + R_{fail} + O_{pass}}$$
+
+In the report below, we will examine trends in four aggregate FAIR scores and in the individual FAIR checks. We will also evaluate the effect of data curation by the ADC's Data Team on metadata quality and the associated FAIR metrics. Additional analyses include examining the relationship between FAIR scores and views, as well as those associated with negative FAIR checks.
+
+These analyses show that:
+
+1. [all aggregate FAIR scores increase over time](#main-point-1), 
+2. [the major FAIR improvements occur in Accessibility, Interoperability, and Re-usability](#main-point-1),
+3. [Data Team curation increases FAIR scores across all categories](#main-point-3),
+4. [data curation has gotten better over time and it has increasingly improved the metadata associated with data packages](#main-point-4),
+5. [FAIR scores for initial submissions continue to increase over time](#main-point-5),
+6. [data curation improves 34 individual metadata checks for information](#main-point-6).
+
+
+
+<br><br><br><br>
+
+***
+
+## **2. FAIR Scores Over Time** {#main-point-1}
+
+All aggregate FAIR scores have increased since the Arctic Data Center openned on March 21, 2016. This is true of the Overall score, but also with each of the categories that make up FAIR: Findability, Accessibility, Interoperability, and Re-usability.
+
+The gains in the Overall FAIR scores are driven by large improvements in the Accessibility, Interoperability, and Re-usability scores. These three score categories have seen the largest gains since the opening of the ADC; each of their scores have increased by ~0.5.
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 2-1: Mean monthly FAIR scores, both overall and the aggregate scores, have continually increased over time since the openning of the ADC."}
+##############################
+# FIGURE 10: 
+##############################
+plot10
+```
+
+
+<br>
+
+  [The Advanced Cooperative Arctic Data and Information Service (ACADIS)](https://www.arcus.org/witness-the-arctic/2012/2/article/19154) is the precursor to the ADC. ACADIS maintained data archive infrastructure and provided services to support projects funded by the Office of Polar Programs. The ADC inherited **`r preADC_datasets`** datasets from ACADIS, which are still held in the repository today (noted on the upper-left side of Figure 2-1, above). ACADIS data comes from two sources, the ACADIS Gateway (~2500 dataset) and the Earth Observing Laboratory (500-1000 datasets).
+
+
+<br><br><br><br>
+
+***
+
+
+## **3. Data Team Curation Practices**{#main-point-3}
+
+All data submission are reviewed by the ADC's Data Team. The Data Team then works with the submitter to resolve any issues, which includes adding additional information to multiple metadata fields. These data curation steps are reflected in a data packages FAIR scores, which increase substantially between a packages initial submission and final publication.
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 3-1: Mean aggregate FAIR score increases from initial submission to final dataset publication."}
+##############################
+# FIGURE 7a: 
+##############################
+plot7a
+```
+
+
+<br>
+
+FAIR scores improve through Data Team curation in all categories, which includes the Overall score. Note that the FAIR categories with the greatest change after curation -- Accessibility, Interoperability, and Re-usability -- are also those that showed the greatest amount of improvement since the opening of the ADC.
+
+
+<br><br>
+
+### {#main-point-5}
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 3-2: Mean monthly FAIR scores increase over time for all FAIR categories."}
+##############################
+# FIGURE 11: 
+##############################
+plot11
+```
+
+
+<br>
+
+Previous analyses have shown that the average FAIR score has increased since the ADC's inception. These improvements come from two areas: improved FAIR scores of initial submissions, and curation processes that are increasingly able to improve metadata quality of data package submissions.
+
+
+<br><br>
+
+### {#main-point-4}
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 3-3: Running monthly mean FAIR scores show increasing difference between initial and final scores in most FAIR categories."}
+##############################
+# FIGURE 12: 
+##############################
+plot12
+```
+
+
+<br>
+
+The increased ability of the Data Team to improve metadata quality is best showcased by examining the widening gap over time between initial FAIR scores and those of the final data package This is particularly true for the Interoperable and Re-usable categories.
+
+
+<br><br><br><br>
+
+***
+
+
+## **4. Individual FAIR Checks** {#main-point-6}
+
+There are 51 individual checks for information within metadata records that inform the calculation of FAIR scores. These individual checks are divided among the four FAIR categories of Findable, Accessible, Interoperable, and Reusable. The following figures examine the change in FAIR scores between the initial data package and the final versions; these analyses are similar to the one conducted on the four, higher-level FAIR categories in Figure 3-1.
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 4-1: Improvement in proportion of successful individual checks during data curation, with all submissions started prior to the ADC's inception removed."}
+##############################
+# Plot 5a: 
+##############################
+plot5a
+```
+
+
+<br>
+
+Of the 51 individual checks shown above, 34 are improved during data curation with 4 near perfect at initial submission. This leaves 13 checks to target in future process improvements or FAIR package updates, if information is stored in different locales outside of the EML metadata. The increases in both the overall FAIR score, as well as within each category, that were noted in Figure 2-1 are the result of improvements to the individual checks seen here.
+
+<br><br>
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 4-2: Improvement in proportion of successful individual checks during data curation, with all submissions started prior to the ADC's inception reported separately."}
+##############################
+# FIGURE 5b: 
+##############################
+plot5b
+```
+
+
+<br>
+
+When plotted with data prior to the opening of the ADC, additional value beyond Data Team curation becomes visible. Initial submissions directly to the ADC since 2016-03-21, regularly have higher FAIR scores than the final versions of pre-ADC data. This is particularly true of individual checks within the Interoperable and Re-usable categories. This demonstrates additional value to the ADC's ecosystem beyond the significant value added by the Data Team.
+
+
+<br><br><br><br>
+
+***
+
+
+## **5. `gganimate`**
+
+Here is an animated version of Figure 2-1. A lower resolution version is also easily created using the source script. Note that this figure cannot currently be generated on Aurora (as of 2020-11-18).
+
+<br>
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 5-1: Mean monthly FAIR scores, both overall and the aggregate scores, have continually increased over time since the openning of the ADC."}
+##############################
+# FIGURE 10: 
+##############################
+gif_plot10
+```
+
+
+
+<br><br><br><br>
+
+***
+
+## **6. Google Analytics and FAIR scores**
+
+These analyses represent **`r agg_GA_datasets`** datasets from the ADC. Unfortunately, they do not show any relationships of note and no relationship between FAIR scores and dataset views could be established. The next step would be to investigate the relationship of FAIR with downloads using DataONE's quality service.
+
+<br>
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12, fig.cap="Figure 6-1: [caption here]"}
+##############################
+# FIGURE 8a-e: 
+##############################
+plot8a
+plot8b
+plot8c
+plot8d
+```
+
+
+
+<br><br><br><br>
+
+***
+
+## **APPENDIX**
+
+### **Data removed during cleaning**
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12}
+##############################
+# FIGURE 2: 
+##############################
+plot2_combo
+```
+
+
+<br><br>
+
+### **Calculating FAIR scores**
+
+FAIR scores are calculated in two ways: overall - across each FAIR category, and within a FAIR category. The FAIR scores are calculated using the [algorithm](https://github.com/NCEAS/metadig-checks/issues/155) below, using the Required and Optional checks for each category. The overall scores is calculated using the same algorithm, but is calculated across all checks.
+  
+  $$score_{overall} = \frac{R_{pass} + O_{pass}}{R_{pass} + R_{fail} + O_{pass}}$$
+
+
+<br><br>
+
+### **Negative/Degrading Checks**
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 9, fig.width = 12}
+##############################
+# Table 1: 
+##############################
+DT::datatable(check_summary_root_cause,
+          class = 'cell-border stripe',
+          colnames = c("Check Name", "Rights Holder", "formatId", "n"),
+          caption = htmltools::tags$caption(
+            style = 'caption-side: top; text-align: left;', 'Table 1: ', 
+            htmltools::em('Top 7 FAIR checks with the most negative checks.')),
+          options = list(pageLength = 5, autoWidth = TRUE))
+
+#filters=top
+```
+
+
+<br><br>
+
+### **Code on Github**
+Note: Some summarizing and calculation of means is conducted outside of these scripts.
+
+Aggregate FAIR Scores: [Cleaning](https://github.com/cwbeltz/Data-Fellowship_FAIR-Metrics/blob/master/code/Aggregate-Scores/01_Cleaning_Aggregate-FAIR-Scores.R)   |   [Calculations](https://github.com/cwbeltz/Data-Fellowship_FAIR-Metrics/blob/master/code/Aggregate-Scores/02_Calculation_Aggregate-FAIR-Scores.R)
+
+Individual FAIR Checks: [Cleaning](https://github.com/cwbeltz/Data-Fellowship_FAIR-Metrics/blob/master/code/Individual-Checks/01_Cleaning_Individual-FAIR-Checks.R)   |   [Calculations](https://github.com/cwbeltz/Data-Fellowship_FAIR-Metrics/blob/master/code/Individual-Checks/02_Calculation_Individual-FAIR-Checks.R)
+
+
+<br><br>
+
+### **Additional Resources**
+
+* [Arctic Data Center FAIR Score Assessment](https://arcticdata.io/catalog/profile)
+* [DataONE FAIR Description](https://www.dataone.org/fair/)
+
+* [FORCE11](https://www.force11.org/group/fairgroup/fairprinciples)
+* [Wilkinson et al., 2016](https://doi.org/10.1038/sdata.2016.18)
+* [Wilkinson et al., 2018](https://doi.org/10.1038/sdata.2018.118)
+* [Quantifying FAIR Presentation](https://zenodo.org/record/3408466#.X6m23pNKjUJ)
+
+* [FAIR score algorithm](https://github.com/NCEAS/metadig-checks/issues/155)
+
+
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+##############################
+# Beep to note knitting is complete
+##############################
+beepr::beep(3)
+```
+
+
+
+
