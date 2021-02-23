@@ -113,7 +113,7 @@ if (file.exists(runs_temp_file)) {
 }
 ```
 
-To summaize the current status of each repository collection, I selected only the most recent version of each metadata document from each version chain, and then calculated the proportion of documents for which each of the FAIR `r fair_suite` checks pass. Plots are created with results grouped by the FAIR type of the check and the reposistory.
+To summarize the current status of each repository collection, I selected only the most recent version of each metadata document from each version chain, and then calculated the proportion of documents for which each of the FAIR `r fair_suite` checks pass. Plots are created with results grouped by the FAIR type of the check and the reposistory.
 
 ```{r fair_breakdown_by_node, fig.width="20", echo=FALSE}
 
