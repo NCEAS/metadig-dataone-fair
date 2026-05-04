@@ -1,0 +1,18 @@
+---
+title: "MetaDIG DataONE FAIR manuscript, title TBD"
+format: html
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Load the current package functions and dependencies
+library(ggplot2)
+```
+
+## Hello World
+
+This will be the gas [@Jones2019-za] talking about @Wilkinson2016-mw.
+
+## References

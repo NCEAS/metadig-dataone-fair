@@ -1,0 +1,20 @@
+Package: metadigms
+Title: 'MetaDIG' DataONE Manuscript
+Version: 0.1.0
+Authors@R: c(
+    person("Jeanette", "Clark", role = c("aut","cre"), email = "jclark@nceas.ucsb.edu", comment=c(ORCID = "0000-0003-4703-1974")),
+    person("Angie", "Garcia", role = c("aut"), email = "agarcia@nceas.ucsb.edu", comment=c(ORCID = "0000-0000-0000-YYYY")),
+    person("Nicole", "Greco", role = c("aut"), email = "greco@nceas.ucsb.edu", comment=c(ORCID = "0000-0000-0000-YYYY")),
+    person("Ted", "Habermann", role = c("aut"), email = "ted@metadatagamechangers.com", comment=c(ORCID = "0000-0000-0000-YYYY")),
+    person("Matthew B.", "Jones", role = c("aut"), email = "jones@nceas.ucsb.edu", comment=c(ORCID = "0000-0003-0077-4738"))
+    )
+Description: A manuscript about DataONE FAIR using MetaDIG.
+License: CC BY 4.0
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Config/Needs/website: rmarkdown
+Imports:
+    ggplot2
+Suggests:
+    quarto
