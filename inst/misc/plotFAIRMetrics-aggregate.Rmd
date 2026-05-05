@@ -24,21 +24,21 @@ FAIR metrics scores are preliminary and are based on the draft, proposed approac
 
 ```{r load_data}
 
-data_file <- "./FAIR-scores-v0.2.0.csv"
-if (!file.exists(data_file)) {
-    message("Reading data from KNB Repository...")
-    # Data file is available on the KNB Data Repository as part of data package:
-    data_url <- "https://knb.ecoinformatics.org/knb/d1/mn/v2/object/urn%3Auuid%3A2d586cef-47ba-40ee-8040-9e174d6e814c"
-    # NB: write_csv uses different CSV formatting, so checksums will not match the
-    # originally archived file; it would be better to first download and save the 
-    # CSV file, then parse it from disk, but its easier with one step
-    fsr <- read_csv(data_url)
-    write_csv(fsr, data_file)
-} else {
-    message("Reading from local file...")
-    fsr <- read_csv(data_file) 
-}
-scores <- mutate(fsr, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
+data_file <- "../data/FAIR-scores-0.5.0.csv"
+
+response <- GET(
+  url = "http://api.dataone.org/quality/scores/",
+  query = list(
+    id = "urn:node:CN",
+    suite = "FAIR-suite-0.4.0"
+  ),
+  add_headers(Accept = "text/csv")
+)
+
+# To view the content as a data frame
+data <- content(response, as = "parsed", type = "text/csv")
+
+scores <- mutate(data, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
       mutate(scoreF = scoreFindable * 100.0) %>%
       mutate(scoreA = scoreAccessible * 100.0) %>%
       mutate(scoreI = scoreInteroperable * 100.0) %>%
@@ -49,13 +49,11 @@ most_recent <- scores %>%
   arrange(ym, sequenceId, dateUploaded) %>%
   group_by(ym, sequenceId) %>%
   top_n(1,dateUploaded)
-head(most_recent)
 ```
 
 ```{r count_standards}
 standards <- data.frame(table(most_recent$dialect)) %>%
   rename(dialect=Var1, n=Freq)
-standards
 ```
 
 ## Overall FAIR asssessment
@@ -126,7 +124,7 @@ Combined across all repositories, but split across metadata dialects. FAIR score
 ```{r calc_cumulative_by_dialect}
 score_dialect <- most_recent %>%
   group_by(dialect, ym) %>%
-  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR)) %>%
+  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR), .groups = "drop") %>%
   mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
   select(dialect, ym, f, a, i, r, fc, ac, ic, rc) %>%
   gather(metric, mean, -dialect, -ym)
@@ -167,7 +165,7 @@ Split results across selected DataONE repositories.  FAIR scores show the cumula
 ```{r calc_cumulative_by_repo}
 score_repo <- most_recent %>%
   group_by(datasource, ym) %>%
-  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR)) %>%
+  summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR), .groups = "drop") %>%
   mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
   select(datasource, ym, f, a, i, r, fc, ac, ic, rc) %>%
   gather(metric, mean, -datasource, -ym)
@@ -180,8 +178,7 @@ score_repo$metric <- factor(score_repo$metric,
 
 ```{r plot_cumulative_by_repo}
 cum_repo <- score_repo %>% 
-  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) %>%
-  filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:EDI", "urn:node:LTER", "urn:node:PISCO", "urn:node:SANPARKS")))
+  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) 
 
 cum_repo %>%
   filter(metric %in% c("Cum. Findable")) %>%
