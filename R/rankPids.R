@@ -1,3 +1,5 @@
+noop2 <- function() {
+
 library(dplyr)
 library(uuid)
   
@@ -80,3 +82,5 @@ for (row in 1:nrow(metrics)) {
 # TODO: write out each line as it is ready, instead of waiting until the very end, 
 # as this program takes a really long time to run.
 write.csv(metrics, "FAIR-scores-ranked.csv")
+
+}

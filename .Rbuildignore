@@ -1,5 +1,5 @@
 ^LICENSE\.md$
 ^vignettes/articles$
 z_other
-*.code-workspace
-*.Rproj
+.*.code-workspace
+.*.Rproj

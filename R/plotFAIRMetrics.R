@@ -1,4 +1,5 @@
 
+noop <- function() {
 
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
@@ -7,6 +8,7 @@ library(ggplot2)
 library(scales)
 library(tidyverse)
 library(lubridate)
+
 
 
 updates <- data.frame(v1=seq(as.Date("2000/1/1"), by = "month", length.out = 10),
@@ -114,3 +116,5 @@ ggplot(data=score_cumulative, mapping=aes(x=ym, y=mean, color=metric)) +
   scale_y_continuous(limits=c(0,100)) +
   ylab("Average FAIR Score") +
   ggtitle(paste0("FAIR scores for ", format(sum(standards$n), big.mark=","), " EML and ISO records"))
+
+}
