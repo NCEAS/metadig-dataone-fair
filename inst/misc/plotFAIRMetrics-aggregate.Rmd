@@ -16,6 +16,9 @@ library(scales)
 library(tidyverse)
 library(lubridate)
 library(DT)
+library(flowers)
+library(grid)
+devtools::load_all("../..")
 ```
 
 # Load FAIR metrics scores
@@ -74,6 +77,11 @@ score_cumulative$metric <- factor(score_cumulative$metric,
                                            "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
 score_monthly <- score_cumulative %>% filter(metric %in% c("Findable", "Accessible", "Interoperable", "Reusable"))
 score_cumulative_alone <- score_cumulative %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+```
+
+
+```{r, warning=FALSE}
+plot_obj <- fair_flower(score_cumulative_alone, title = "DataONE Overall", filename="dataone-fair-flower.png")
 ```
 
 ```{r plot_cumulative_overall}
@@ -135,8 +143,19 @@ score_dialect$metric <- factor(score_dialect$metric,
 
 ```
 
+
+```{r flower_cumulative_by_dialect, fig.width=8}
+cum_dialect <- score_dialect %>% 
+  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+
+plots <- cum_dialect %>%
+  split(.$dialect) #%>% 
+  #purrr::imodify( ~fair_flower(df = .x, title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
+p_eml <- fair_flower(df = plots[[1]], title = "EML")
+p_iso <- fair_flower(df = plots[[2]], title = "ISO")
+```
+
 ```{r plot_cumulative_by_dialect}
-cum_dialect <- score_dialect %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
 
 p <- ggplot(data=cum_dialect, mapping=aes(x=ym, y=mean, color=metric)) +
   geom_line() +
@@ -176,14 +195,18 @@ score_repo$metric <- factor(score_repo$metric,
 
 ```
 
-```{r plot_cumulative_by_repo}
+```{r}
 cum_repo <- score_repo %>% 
-  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) 
+  filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable")) %>% 
+  mutate(repo = stringr::str_remove(datasource, pattern="urn:node:"))
+  
+repo_flowers <- cum_repo %>%
+  split(.$repo) %>% 
+  purrr::imodify( ~fair_flower(df = as.data.frame(.x), title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
+```
 
-cum_repo %>%
-  filter(metric %in% c("Cum. Findable")) %>%
-  group_by(datasource) %>%
-  summarize(n=n())
+
+```{r plot_cumulative_by_repo}
 
 p <- ggplot(data=cum_repo, mapping=aes(x=ym, y=mean, color=metric)) +
   geom_line() +
@@ -203,3 +226,46 @@ p <- ggplot(data=cum_repo, mapping=aes(x=ym, y=mean, color=metric)) +
 ggsave("dataone-fair-scores-repos.png", width = 8, height = 4)
 p
 ```
+
+Zooming in for a couple of selected repositories shows the temporal trends.
+
+```{r plot_monthly_by_repo_select, fig.height=5, fig.width=7}
+
+repo_monthly <- score_repo %>% 
+  filter(metric %in% c("Findable", "Accessible", "Interoperable", "Reusable")) %>% 
+  filter(!datasource %in% (c("urn:node:mnTestNKN", "urn:node:ONEShare_test"))) %>% 
+  mutate(repo = stringr::str_remove(datasource, pattern="urn:node:"))
+
+repo_monthly_selected <- repo_monthly %>% 
+  filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:ESS_DIVE", "urn:node:LTER")))
+
+fair_version <- "0.4.0"
+
+FAIR_annotation <- grobTree(textGrob(paste0("FAIR Suite ", fair_version), 
+                                     x=0.05,  y=0.95, hjust=0, 
+                                     gp=gpar(col="darkgrey", fontsize=13, fontface="italic")))
+
+d1_theme <- theme_bw() +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        legend.position = "bottom")
+
+p <- ggplot(data=repo_monthly_selected, mapping=aes(x=ym, y=mean, color=metric)) +
+  geom_line() +
+  geom_point(size=1) +
+  facet_wrap( ~ repo, ncol=3) +
+  annotation_custom(FAIR_annotation) +
+  d1_theme +
+  scale_colour_manual(values=d1_colors) +
+  scale_x_date(date_breaks="5 years", date_minor_breaks="months", labels=date_format("%Y")) +
+  xlab("Year") +
+  scale_y_continuous(limits=c(0,100)) +
+  ylab("Average FAIR Score (%)") +
+  ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
+ggsave("figures/dataone-fair-scores-repos-monthly-zoom.png", width = 8, height = 8)
+p
+```
+
+
