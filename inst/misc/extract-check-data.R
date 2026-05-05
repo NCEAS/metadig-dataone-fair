@@ -4,7 +4,7 @@ library(purrr)
 
 out_csv <- "check-results-0.4.0.csv"
 out_run <- "run-results-0.4.0.csv"
-input_docs <- "docs-run-0.4.0/"
+input_docs <- "../metadig-data/docs-run-0.4.0"
 
 extract_value <- function(nodeset, xpath) {
     node <- xml_find_all(nodeset, xpath)
