@@ -2,7 +2,7 @@ library(httr)
 library(curl)
 library(future.apply)
 
-docs_dir <- "docs-run-0.4.0"
+docs_dir <- "../metadig-data/docs-run-0.4.0"
 suite <- "FAIR-suite-0.4.0"
 
 if (!dir.exists(docs_dir)){
@@ -18,12 +18,12 @@ response <- GET(
     add_headers(Accept = "text/csv")
 )
 
-# To view the content as a data frame
+
 data <- content(response, as = "parsed", type = "text/csv")
 
 pids <- data$pid
 
-# download the files in parallel using `curl_fetch_multi`
+
 url_stub <- paste0("https://api.dataone.org/quality/runs/", suite, "/")
 urls <- paste0(url_stub, pids)
 
@@ -37,10 +37,8 @@ dests_to_get <- destinations[!already_downloaded]
 
 cat("Skipping", sum(already_downloaded), "files. Downloading", length(urls_to_get), "files...\n")
 
-# 2. Set up parallel backend to run 10 at a time
 plan(multisession, workers = 10)
 
-# 3. Wrap your original loop logic in a function
 download_file <- function(i) {
     url <- urls_to_get[i]
     file_name <- dests_to_get[i]
@@ -63,6 +61,4 @@ download_file <- function(i) {
     })
 }
 
-# 4. Run the parallel loop
-# future_lapply automatically manages the pool of 10 workers for you
 results <- future_lapply(seq_along(urls_to_get), download_file)
