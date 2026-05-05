@@ -3,3 +3,5 @@
 z_other
 .*.code-workspace
 .*.Rproj
+^.*\.Rproj$
+^\.Rproj\.user$

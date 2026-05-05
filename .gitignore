@@ -7,3 +7,7 @@
 **/*.quarto_ipynb
 **/_manuscript/
 **/_freeze/
+
+*.Rproj
+
+docs*/*.xml
