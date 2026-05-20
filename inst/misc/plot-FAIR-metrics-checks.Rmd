@@ -9,71 +9,16 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r load_libraries, echo=FALSE}
+```{r load_libraries, echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
-library(purrr)
+library(arrow)
+library(here)
 ```
 
-```{r load_check_data, eval=FALSE, echo=FALSE}
-fair_suite <- '0.2.2'
-load_check_data <- function() {
-  check_data <- "check-data"
-  checks_joined_file <- paste0(check_data, "/fair-0.2.2-checks-joined.rda")
-  runs_file <- paste0(check_data, "/fair-0.2.2-runs.rda")
-  if(file.exists(checks_joined_file) && file.exists(runs_file)) {
-    loaded <- load(checks_joined_file)
-    loaded <- load(runs_file)
-    return(list(runs=runs, checks_joined=checks_joined))
-  }
-  
-  # If the RDA file doesn't exist, build it from the CSV files
-  
-  run_files <- list.files(path = check_data, pattern = "fair-2.1-runs-.*\\.csv$")
-  check_files <- list.files(path = check_data, pattern = "fair-2.1-checks-.*\\.csv$")
 
-  run_col_types <- cols(
-    X1="-",
-    run_id="c",
-    obj_id="c",
-    series_id="c",
-    suite_id="c",
-    run_status="c",
-    origin_mn="c",
-    date_uplaoded="c",
-    format_id="c",
-    obsoletes="c",
-    filename="c"
-  )
-  runs <- paste0(check_data, "/", run_files) %>%
-    map_df(read_csv, col_names = TRUE, col_types = run_col_types) %>% 
-    rename(pid=obj_id)
-  save(runs, file = runs_file)
-
-  checks <- paste0(check_data, "/", check_files) %>%
-    map_df(read_csv, col_names = TRUE) %>%
-    select(-X1) %>% 
-    mutate(check_type = factor(check_type, levels = c(F="Findable", A="Accessible", I="Interoperable", R="Reusable"))) %>% 
-    mutate(check_level = factor(check_level, levels = c(R="REQUIRED", O="OPTIONAL")))
-
-  checks_list <- checks %>% 
-    select(check_id, check_name, check_type, check_level) %>% 
-    group_by(check_id) %>% 
-    dplyr::slice(1) %>% 
-    arrange(check_type, check_level, check_name)
-  check_names_factor <- factor(levels = checks_list$check_name)
-  
-  checks <- mutate(checks, check_name = factor(check_name, levels(check_names_factor)))
-    
-  checks_joined <- checks %>% 
-    left_join(runs, by = "run_id")
-  
-  save(checks_joined, file = checks_joined_file)
-  return(list(runs=runs, checks_joined=checks_joined))
-}
-
-df_list <- load_check_data()
-runs <- df_list[[1]]
-checks_joined <- df_list[[2]]
+```{r}
+run_results <- open_dataset(here("../metadig-data/run-data-0.5.0"))
+check_results <- open_dataset(here("../metadig-data/check-data-0.5.0"))
 ```
 
 # Summarize check data
@@ -83,68 +28,76 @@ NB: This is currently for just a subset of nodes!
 ```{r summary}
 status_palette <- c("grey", "salmon2", "seagreen4")
 
-checks_subset <- checks_joined %>% 
-  filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE", "urn:node:NCEI"))
+checks_subset <- check_results %>% 
+    filter(tolower(check_status) != "error") %>% 
+    filter(check_level != "INFO") %>% 
+    left_join(run_results) %>% 
+    filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE", "urn:node:EDI"))
 
 overall_status <- checks_subset %>% 
-  group_by(origin_mn, check_level) %>% 
-  summarize(n=n())
+    group_by(origin_mn, check_level, check_status, check_type) %>% 
+    summarize(n=n()) %>% 
+    collect() 
 
-ggplot(checks_subset, aes(x=forcats::fct_rev(check_level), fill=check_status)) + 
-  geom_bar(position="fill") +
-  theme_bw() +
-  scale_fill_manual(values = status_palette) +
-  xlab(element_blank()) +
-  ylab("Proportion") +
-  facet_grid(rows = vars(origin_mn), cols = vars(check_type))
-  #facet_wrap(facets = origin_mn ~ check_type, ncol = 4)
-ggsave("figures/dataone-fair-nodes-summary.png", height=10, width=10)
+ggplot(overall_status, aes(x=forcats::fct_rev(check_level), fill=check_status)) + 
+    geom_col(aes(y = n), position="fill") +
+    theme_bw() +
+    scale_fill_manual(values = status_palette) +
+    xlab(element_blank()) +
+    ylab("Proportion") +
+    facet_grid(rows = vars(origin_mn), cols = vars(check_type))
+
 ```
 
 ## Plot FAIR suite results by check and repository
 
-```{r load_versioned_data, echo=FALSE}
-check_data <- "check-data"
-runs_temp_file <- paste0(check_data, "/fair-0.2.2-runs-versioned.rda")
-if (file.exists(runs_temp_file)) {
-  loaded <- load(runs_temp_file)
-  runs_versioned <- runs_temp
-  rm(runs_temp)
-}
-```
 
 To summarize the current status of each repository collection, I selected only the most recent version of each metadata document from each version chain, and then calculated the proportion of documents for which each of the FAIR `r fair_suite` checks pass. Plots are created with results grouped by the FAIR type of the check and the reposistory.
 
 ```{r fair_breakdown_by_node, fig.width="20", echo=FALSE}
 
 plot_suite_results <- function(df, node = NA, fair_suite = NA) {
-  p <- ggplot(df, aes(x=forcats::fct_rev(check_name), fill=check_status)) + 
-    geom_bar(position="fill") +
-    theme_bw() +
-    ggtitle(paste0(node, ': FAIR Suite ', fair_suite)) +
-    scale_fill_manual(values = status_palette) +
-    facet_wrap(facets = ~ check_type, ncol = 4) +
-    xlab("Check Name") +
-    ylab("Proportion") +
-    coord_flip()
-  ggsave(paste0("figures/fair-breakdown-", node, ".png"), height=10, width=10)
-  return(p)
+    p <- ggplot(df, aes(x=forcats::fct_rev(check_id), fill=check_status)) + 
+        geom_col(aes(y = n), position="fill") +
+        theme_bw() +
+        ggtitle(paste0(node, ': FAIR Suite ', fair_suite)) +
+        scale_fill_manual(values = status_palette) +
+        facet_wrap(facets = ~ check_type, ncol = 4) +
+        xlab("Check Name") +
+        ylab("Proportion") +
+        coord_flip()
+    ggsave(paste0("figures/fair-breakdown-", node, ".png"), height=10, width=10)
+    return(p)
 }
 
-checks_current <- runs_versioned %>% 
-  filter(ser_version > 1) %>% 
-  filter(!origin_mn %in% (c("urn:node:mnTestNKN", "urn:node:ONEShare_test"))) %>% 
-  #filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:EDI", "urn:node:NCEI", "urn:node:ESS_DIVE")) %>% 
-  filter(is.na(obsoleted_by), !is.na(ser_version)) %>% 
-  mutate(repo = stringr::str_remove(origin_mn, pattern="urn:node:")) %>% 
-  inner_join(checks_joined, by = "run_id") %>% 
-  arrange(check_type)
+runs_versioned <- run_results %>%
+    filter(run_status != "ERROR") %>% 
+    mutate(series_id = coalesce(series_id, obj_id)) %>% 
+    arrange(date_uploaded) %>%             
+    group_by(series_id) %>% 
+    collect() %>% 
+    mutate(ser_version = row_number()) %>% 
+    ungroup() %>% 
+    mutate(repo = str_remove(origin_mn, pattern = "urn:node:"))
+
+runs_last <- runs_versioned %>% 
+    filter(!is.na(obsoleted_by))
+
+checks_current <- check_results %>% 
+    filter(check_status != "ERROR", check_type != "INFO") %>% 
+    inner_join(runs_last, by = "run_id") %>% 
+    group_by(repo, check_id, check_status, check_type) %>% 
+    summarise(n = n(), .groups = "drop") %>% 
+    arrange(check_type) %>% 
+    collect()
+
+fair_suite <- '0.5.0'
 
 repo_fair_plots <- checks_current %>%
-  split(.$repo) %>% 
-  purrr::imodify( ~plot_suite_results(df = as.data.frame(.x), node = .y, fair_suite = fair_suite))
-repo_fair_plots
+    split(.$repo) %>% 
+    purrr::imodify( ~plot_suite_results(df = as.data.frame(.x), node = .y, fair_suite = fair_suite))
 ```
+
 
 
 
