@@ -1,7 +1,18 @@
+#' Extract Latest Metric State and Render a FAIR Flower Plot
+#'
+#' @param df data frame containing chronological monthly scores with columns \code{metric} and \code{mean}.
+#' @param title
+#' @param filename
+#'
+#' @return A polar ggplot object
+#'
+#' @importFrom dplyr group_by filter rename mutate %>%
+#' @importFrom tidyr separate
+#' 
 fair_flower <- function(df, title = NA, filename = NA) {
     flower_df <- df %>%
         group_by(metric) %>%
-        #filter(ym == max(ym)) %>%
+        filter(ym == max(ym)) %>%
         rename(score=mean) %>%
         separate(col=metric, into=c(NA, "label"), sep=" ") %>%
         mutate(category = NA, goal = label)
@@ -12,7 +23,19 @@ fair_flower <- function(df, title = NA, filename = NA) {
 
 
 
-
+#' Generate a Polar FAIR Flower/Petal Diagram
+#' 
+#' Derived from `fair_flower` from the `flowerplot` package, which I couldn't get to work
+#' correctly and don't have time to maintain.
+#'
+#' @param .Data A data frame containing individual metric rows with columns \code{score} and \code{label}.
+#' @param title Character string title for the plot canvas. Defaults to \code{NA}.
+#'
+#' @return A theme-void polar coordinate ggplot visual asset with an absolute center score.
+#'
+#' @importFrom dplyr mutate %>% .data
+#' @import ggplot2
+#' 
 make_flower_plot <- function(.Data, title = NA) {
     
     if(!"weight" %in% colnames(.Data)) .Data$weight <- 1
@@ -47,13 +70,11 @@ make_flower_plot <- function(.Data, title = NA) {
         ggplot2::geom_errorbar(ggplot2::aes(ymin = score_100, ymax = score_100), size = 0.5, color = dark_line) + 
         ggplot2::geom_errorbar(ggplot2::aes(ymin = 0, ymax = 0), size = 0.5, color = dark_line) + 
         
-        # Polar conversion and alignment
         ggplot2::coord_polar(start = 0) + 
         ggplot2::scale_x_continuous(breaks = .Data$pos, limits = p_limits) + 
         ggplot2::scale_y_continuous(limits = c(-blank_circle_rad, 110)) +
         ggplot2::scale_fill_manual(values = flower_colors)
     
-    # Grand mean center text logic
     mean_score <- round(mean(.Data$score_100, na.rm = TRUE))
     plot_obj <- plot_obj + ggplot2::annotate(
         "text", 
@@ -66,7 +87,6 @@ make_flower_plot <- function(.Data, title = NA) {
         plot_obj <- plot_obj + ggplot2::labs(title = title)
     }
     
-    # Complete theme wipe
     plot_obj <- plot_obj + ggplot2::theme_void() + 
         ggplot2::theme(
             plot.title = ggplot2::element_text(hjust = 0.5, size = 20),

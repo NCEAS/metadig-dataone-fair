@@ -1,15 +1,14 @@
-
-library(xml2)
-library(purrr)
-library(dplyr)
-library(future)
-
+#' Extract a character text value from a nodeset using an XPath
+#'
+#' @importFrom xml2 xml_find_all xml_text
+#' @importFrom purrr is_empty
 extract_value <- function(nodeset, xpath) {
     node <- xml2::xml_find_all(nodeset, xpath)
     value <- ifelse(purrr::is_empty(node), as.character(NA), xml_text(node))
     return(value)
 }
 
+#' Extract root run metadata attributes from an XML document
 extract_run <- function(doc, filename) {
     run_id <- extract_value(doc, "/ns0:run/id")
     obj_id <- extract_value(doc, "/ns0:run/objectIdentifier")
@@ -27,6 +26,11 @@ extract_run <- function(doc, filename) {
                date_uploaded, format_id, obsoletes, obsoleted_by, filename, stringsAsFactors = FALSE)
 }
 
+#' Parse and aggregate check results nested within a run block
+#'
+#' @importFrom purrr map_df
+#' @importFrom dplyr mutate %>%
+#' @importFrom xml2 xml_find_all
 extract_checks <- function(doc) {
     run_id <- extract_value(doc, "/ns0:run/id")
     results <- xml2::xml_find_all(doc, "/ns0:run/result")
@@ -38,6 +42,9 @@ extract_checks <- function(doc) {
         mutate(run_id = run_id)
 }
 
+#' Map XML result properties into a single row data frame
+#'
+#' @importFrom xml2 xml_text xml_find_all
 extract_result <- function(result) {
     check_id <- xml_text(xml_find_all(result, "check/id"))
     check_name <- xml_text(xml_find_all(result, "check/name"))
@@ -56,16 +63,16 @@ extract_result <- function(result) {
 #' @param input An input vector.
 #' @param by The length of the resulting vectors.
 #' 
-#' 
-#' @examples
-#' vec <- 1:13
-#' slice(vec, 3)
+#' @importFrom purrr lmap
 slice <- function(input, by=2) {
     starts <- seq(1,length(input),by)
     tt <- lapply(starts, function(y) input[y:(y+(by-1))])
     lmap(tt, function(x) x[!is.na(x)])
 }
 
+#' Parse single XML report into run and check blocks safely
+#'
+#' @importFrom xml2 read_xml
 process_xml_file <- function(filename) {
     tryCatch({
         doc <- read_xml(filename)
@@ -93,6 +100,25 @@ process_xml_file <- function(filename) {
     })
 }
 
+#' Batch Process MetaDIG XML Documents into Arrow Parquet Datasets
+#'
+#' Scans an input directory for XML documents, cross-references files against an 
+#' existing Apache Arrow database to prevent redundant parsing, processes new files 
+#' asynchronously via an isolated parallel background cluster, and appends the final partitioned 
+#' structures directly into separate Arrow Parquet output tracking hubs.
+#'
+#' @param input_docs Character string specifying source directory containing raw XML check files.
+#' @param out_runs_dir Character string directory path where the run data should be stored (Partitioned by \code{origin_mn}).
+#' @param out_checks_dir Character string target directory path where the individual check data should be stored (Partitioned by \code{check_type} and \code{check_level}).
+#'
+#' @return \code{invisible(NULL)} upon successful validation and file block write completion.
+#'
+#' @importFrom arrow open_dataset write_dataset collect
+#' @importFrom dplyr select distinct pull bind_rows %>%
+#' @importFrom future plan multisession
+#' @importFrom future.apply future_lapply
+#' @export
+#'
 extract_check_data <- function(input_docs, out_runs_dir, out_checks_dir){
     
     files <- dir(input_docs, full.names = TRUE, recursive = TRUE)
@@ -137,7 +163,7 @@ extract_check_data <- function(input_docs, out_runs_dir, out_checks_dir){
         )
     }
     
-    # 2. Write Checks (Partitioned by node)
+    # write checks (partitioned by check type and level)
     if (nrow(new_checks_df) > 0) {
         write_dataset(
             dataset = new_checks_df, 

@@ -1,17 +1,21 @@
-# calculate aggregate scores
-#load packages
-library(tidyverse)
-library(here)
-library(arrow)
-
-#checks_dir <- here("../metadig-data/check-data-0.5.0")
-#runs_dir <- here("../metadig-data/run-data-0.5.0")
-
+#' Compute Aggregate FAIR Scores from Apache Arrow Repositories
+#' 
+#' This is probably not needed but might be nice if we don't trust the scorer
+#'
+#' @param checks_dir Character string path to the partitioned checks parquet directory.
+#' @param runs_dir Character string path to the partitioned execution runs parquet directory.
+#'
+#' @return A tidy, long-format data frame containing processed, wide-mapped FAIR dimensions.
+#'
+#' @importFrom arrow open_dataset collect
+#' @importFrom dplyr filter mutate if_else inner_join group_by summarise ungroup select rename %>%
+#' @importFrom tidyr pivot_wider
+#' @export
 calc_aggregate_scores <- function(checks_dir, runs_dir){
 
     
-    checks <- open_dataset(out_checks)
-    runs <- open_dataset(out_runs)
+    checks <- open_dataset(checks_dir)
+    runs <- open_dataset(runs_dir)
     
     runs_clean <- runs %>% 
         filter(!(run_status %in% c("ERROR", "failure", "processing")))

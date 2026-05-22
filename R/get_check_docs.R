@@ -1,17 +1,24 @@
-library(httr)
-library(curl)
-library(future.apply)
-
-
-#' Get check documents
+#' Retrieve MetaDIG Assessment Documents
 #'
-#' @param pid_list 
-#' @param suite 
-#' @param docs_dir 
+#' Downloads MetaDIG XML check execution documents for a specified quality suite. 
+#' The function first attempts to extract target persistent identifiers (PIDs) and node structures 
+#' from a local file. If the CSV is missing, it falls back to a DataONE Quality API lookup.
+#' Files are organized hierarchically on disk by repository node name and downloaded in parallel.
 #'
+#' @param pid_list A character string representing the file path to a local CSV file 
+#'   containing columns \code{metadata_id} and \code{data_source}.
+#' @param suite A character string specifying the evaluation suite, eg: "FAIR-suite-0.5.0"
+#' @param docs_dir A character string defining the root target directory path where downloaded 
+#'   XML files should be saved.
+#'
+#' @return Invisibly returns a list of HTTP status codes or error tokens from the 
+#'   parallel batch download operation.
+#'
+#' @importFrom httr GET add_headers content
+#' @importFrom future plan multisession
+#' @importFrom future.apply future_lapply
 #' @export
-#'
-get_check_docs <- function(pid_list, suite, docs_dir){
+get_check_docs <- function(pid_list = NULL, suite, docs_dir){
     if (!dir.exists(docs_dir)){
         dir.create(docs_dir)
     }
@@ -69,10 +76,16 @@ get_check_docs <- function(pid_list, suite, docs_dir){
     system.time(results <- future_lapply(seq_along(urls_to_get), download_file, url = url, file_name = file_name))
 }
 
-
+#' Download a Single XML File Safely to Disk
+#'
+#' @param url 
+#' @param file_name 
+#'
+#' @return
+#'
+#' @importFrom httr GET add_headers write_disk timeout status_code
 download_file <- function(url, file_name) {
     
-    # tryCatch is critical here so one timeout doesn't crash the whole batch
     tryCatch({
         response <- GET(url, 
                         add_headers(Accept = "application/xml"), 
