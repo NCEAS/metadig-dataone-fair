@@ -208,7 +208,7 @@ ggplot() +
         legend.position = "bottom",
         plot.caption = element_text(
             hjust = 0,             
-            color = "grey40",      #
+            color = "grey40",      
             size = 9,              
             margin = margin(t = 15) 
         )
@@ -269,9 +269,9 @@ p <- ggplot(
     ) +
     theme(
         legend.position = "bottom",
-        legend.box = "vertical", # Stacks the two legends cleanly
+        legend.box = "vertical",
         plot.title = element_text(hjust = 0.5, face = "bold"),
-        strip.text = element_text(face = "bold", size = 10) # Makes node names pop
+        strip.text = element_text(face = "bold", size = 10)
     )
 
 p
