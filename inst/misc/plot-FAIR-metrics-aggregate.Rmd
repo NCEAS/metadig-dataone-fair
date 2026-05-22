@@ -15,73 +15,40 @@ library(ggplot2)
 library(scales)
 library(tidyverse)
 library(lubridate)
-library(DT)
-library(flowers)
+#library(flowers)
 library(grid)
 library(here)
-library(httr)
-#devtools::load_all("../..")
-source(here("R/fair_flower.R"))
 library(patchwork)
+devtools::load_all(here())
 ```
 
 # Load FAIR metrics scores
 
 FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
 
-```{r load_data}
 
-data_file <- "../data/FAIR-scores-0.5.0.csv"
-
-response <- httr::GET(
-    url = "http://api.dataone.org/quality/scores/",
-    query = list(
-        id = "urn:node:CN",
-        suite = "FAIR-suite-0.5.0"
-    ),
-    httr::add_headers(Accept = "text/csv")
-)
-
-# To view the content as a data frame
-data <- content(response, as = "parsed", type = "text/csv")
-
-scores <- mutate(data, ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
-    mutate(scoreF = scoreFindable * 100.0) %>%
-    mutate(scoreA = scoreAccessible * 100.0) %>%
-    mutate(scoreI = scoreInteroperable * 100.0) %>%
-    mutate(scoreR = scoreReusable * 100.0) %>%
-    mutate(dialect = case_when(grepl("eml", formatId) ~ "EML",
-                               grepl("iso", formatId) ~ "ISO",
-                               grepl("schema", formatId) ~"SOSO"))
-
-most_recent <- scores %>%
-    arrange(ym, sequenceId, dateUploaded) %>%
-    group_by(ym, sequenceId) %>%
-    top_n(1,dateUploaded)
-```
-
-```{r count_standards}
-standards <- data.frame(table(most_recent$dialect)) %>%
-    rename(dialect=Var1, n=Freq)
-```
 
 ## Overall FAIR asssessment
 
 Comparison across all repositories and across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
 
 ```{r}
-source(here("R/get_node_scores.R"))
-node_scores <- get_node_scores()
+# calculates mean FAIR scores for each node, on most recent versions only, across all time
+data <- get_agg_data()
+node_scores <- get_node_scores_all_time(data)
+```
 
-repo_flowers <- cum_repo %>%
+```{r}
+repo_flowers <- node_scores %>%
     split(.$repo) %>% 
     purrr::imodify( ~make_flower_plot(as.data.frame(.x), title = .y))
 
-all_repos <- cum_repo %>% 
+all_repos <- node_scores %>% 
     group_by(label) %>% 
-    summarise(score = mean(score)) %>% 
+    summarise(score = mean(score, na.rm = T)) %>% 
     mutate(score_100 = score*100) %>% 
-    mutate(label = factor(label, levels = c("Findable", "Accessible", "Interoperable", "Reusable")))
+    mutate(label = factor(label, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
+    arrange(label)
 
 central_master_plot <- make_flower_plot(
     all_repos, 
@@ -133,23 +100,131 @@ ggsave(
 )
 ```
 
+### Arctic Story - pre/post acadis
 
-### Older
+```{r}
+arctic <- data %>% 
+    filter(datasource == "urn:node:ARCTIC") %>% 
+    mutate(prepost = if_else(dateUploaded < as.Date("2016-04-30"), "pre", "post")) %>% 
+    group_by(prepost) %>% 
+    filter(is.na(obsoletedBy)) %>% 
+    summarise(Findable = mean(scoreFindable),
+              Accessible = mean(scoreAccessible),
+              Interoperable = mean(scoreInteroperable),
+              Reusable = mean(scoreReusable),
+              n = n()) %>% 
+    pivot_longer(cols = c("Findable", "Accessible", "Interoperable", "Reusable"), names_to = 'label', values_to = 'score') %>% 
+    mutate(score_100 = score*100)
 
-```{r calc_cumulative_overall}
-score_cumulative <- most_recent %>%
-    arrange(ym) %>%
-    group_by(ym) %>%
-    summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR)) %>%
-    mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
-    select(ym, f, a, i, r, fc, ac, ic, rc) %>%
-    gather(metric, mean, -ym)
-score_cumulative$metric <- factor(score_cumulative$metric,
-                                  levels=c("f", "a", "i", "r", "fc", "ac", "ic", "rc"),
-                                  labels=c("Findable", "Accessible", "Interoperable", "Reusable",
-                                           "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
-score_monthly <- score_cumulative %>% filter(metric %in% c("Findable", "Accessible", "Interoperable", "Reusable"))
-score_cumulative_alone <- score_cumulative %>% filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
+arctic_flowers <- arctic %>%
+    split(.$prepost) %>% 
+    purrr::imodify( ~make_flower_plot(as.data.frame(.x), title = .y))
+
+wrap_plots(arctic_flowers)
+
+
+```
+
+### Timeseries
+
+```{r}
+node_timelines <- data %>% 
+    group_by(datasource) %>% 
+    group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(repo = gsub("urn:node:", "", datasource)) 
+
+node_filtered <- node_timelines %>%
+    group_by(repo) %>% 
+    filter(sum(num_mean, na.rm = TRUE) >= 10000) %>% 
+    filter(n_distinct(ym) >= 60)
+
+node_nons <- node_timelines %>% 
+    filter(!(datasource %in% unique(node_filtered$datasource)))
+
+average_timeline <- get_scores_rolling_mean_ym(data)
+```
+
+```{r}
+node_list_string <- paste0(
+  "Target Nodes: ARCTIC, BCODMO, BOREALIS, DRYAD, DVNO, ESS_DIVE, HD, KNB, LTER, OBIS, PDC, PISCO"
+)
+
+ggplot2::ggplot() +
+    # all individual nodes mapped in the background (thin, muted grey lines)
+    ggplot2::geom_line(
+        data = node_nons, 
+        ggplot2::aes(x = ym, y = mean, group = repo, color = "Other Nodes"), 
+        #color = "gray", 
+        linewidth = 0.5,
+    ) +
+    
+    ggplot2::geom_line(
+        data = node_filtered, 
+        ggplot2::aes(x = ym, y = mean, group = repo, color = "Target Nodes"), 
+        #color = "aquamarine3", 
+        linewidth = 0.7,
+        alpha = 0.8
+    ) +
+    
+    # node average mapped on top 
+    ggplot2::geom_line(
+        data = average_timeline, 
+        ggplot2::aes(x = ym, y = mean, color = "DataONE Federation"), 
+        #color = "#ff3366", 
+        linewidth = 1,
+        alpha = 0.8
+    ) +
+    
+    ggplot2::facet_wrap(~metric, ncol = 2, scales = "fixed") +
+    
+    ggplot2::scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+    ggplot2::scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+    ggplot2::labs(
+        title = "",
+        x = "Upload Date",
+        y = "Score",
+        caption = node_list_string
+    ) +
+    
+    scale_color_manual(
+    name = "",
+    values = c(
+      "Other Nodes" = "grey85",
+      "Target Nodes" = "turquoise3",
+      "DataONE Federation"             = "#ff3366"
+    )
+  ) +
+    
+    ggplot2::theme_minimal(base_size = 13) +
+    ggplot2::theme(
+        plot.title = ggplot2::element_text(face = "bold", size = 16, margin = margin(b = 4)),
+        plot.subtitle = ggplot2::element_text(color = "grey40", size = 11, margin = margin(b = 15)),
+        strip.background = ggplot2::element_rect(fill = "grey95", color = NA),
+        strip.text = ggplot2::element_text(face = "bold", color = "grey20", margin = margin(t = 6, b = 6)),
+        panel.grid.minor = ggplot2::element_blank(),
+        panel.spacing = ggplot2::unit(1.5, "lines"),
+        axis.title.x = ggplot2::element_text(margin = margin(t = 10)),
+        axis.title.y = ggplot2::element_text(margin = margin(r = 10)),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        legend.position = "bottom",
+        plot.caption = element_text(
+            hjust = 0,             
+            color = "grey40",      #
+            size = 9,              
+            margin = margin(t = 15) 
+        )
+    )
+```
+
+
+
+## Older
+
+
+```{r count_standards}
+standards <- data.frame(table(most_recent$dialect)) %>%
+    rename(dialect=Var1, n=Freq)
 ```
 
 

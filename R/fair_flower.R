@@ -1,8 +1,8 @@
 #' Extract Latest Metric State and Render a FAIR Flower Plot
 #'
 #' @param df data frame containing chronological monthly scores with columns \code{metric} and \code{mean}.
-#' @param title
-#' @param filename
+#' @param title title of plot
+#' @param filename filename to save file to
 #'
 #' @return A polar ggplot object
 #'
@@ -20,9 +20,6 @@ fair_flower <- function(df, title = NA, filename = NA) {
     plot_obj <- plot_flower(flower_df, colors = flower_colors, fixed_colors = TRUE, filename = filename, title = title)
     return(plot_obj)
 }
-
-
-
 #' Generate a Polar FAIR Flower/Petal Diagram
 #' 
 #' Derived from `fair_flower` from the `flowerplot` package, which I couldn't get to work

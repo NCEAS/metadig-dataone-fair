@@ -7,8 +7,8 @@
 #'
 #' @return A tidy, long-format data frame containing processed, wide-mapped FAIR dimensions.
 #'
-#' @importFrom arrow open_dataset collect
-#' @importFrom dplyr filter mutate if_else inner_join group_by summarise ungroup select rename %>%
+#' @importFrom arrow open_dataset
+#' @import dplyr
 #' @importFrom tidyr pivot_wider
 #' @export
 calc_aggregate_scores <- function(checks_dir, runs_dir){

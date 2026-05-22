@@ -10,4 +10,5 @@
 
 *.Rproj
 
-docs*/*.xml
+data/*
+inst/misc/figures/*

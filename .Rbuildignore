@@ -5,3 +5,8 @@ z_other
 .*.Rproj
 ^.*\.Rproj$
 ^\.Rproj\.user$
+
+inst/figures
+inst/shiny
+inst/data
+inst/images

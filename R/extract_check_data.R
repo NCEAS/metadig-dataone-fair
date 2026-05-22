@@ -113,8 +113,8 @@ process_xml_file <- function(filename) {
 #'
 #' @return \code{invisible(NULL)} upon successful validation and file block write completion.
 #'
-#' @importFrom arrow open_dataset write_dataset collect
-#' @importFrom dplyr select distinct pull bind_rows %>%
+#' @importFrom arrow open_dataset write_dataset
+#' @import dplyr
 #' @importFrom future plan multisession
 #' @importFrom future.apply future_lapply
 #' @export

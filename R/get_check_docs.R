@@ -78,11 +78,6 @@ get_check_docs <- function(pid_list = NULL, suite, docs_dir){
 
 #' Download a Single XML File Safely to Disk
 #'
-#' @param url 
-#' @param file_name 
-#'
-#' @return
-#'
 #' @importFrom httr GET add_headers write_disk timeout status_code
 download_file <- function(url, file_name) {
     
