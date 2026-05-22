@@ -26,8 +26,6 @@ devtools::load_all(here())
 
 FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
 
-
-
 ## Overall FAIR asssessment
 
 Comparison across all repositories and across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
@@ -131,8 +129,8 @@ wrap_plots(arctic_flowers)
 node_timelines <- data %>% 
     group_by(datasource) %>% 
     group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
-    dplyr::ungroup() %>% 
-    dplyr::mutate(repo = gsub("urn:node:", "", datasource)) 
+    ungroup() %>% 
+    mutate(repo = gsub("urn:node:", "", datasource)) 
 
 node_filtered <- node_timelines %>%
     group_by(repo) %>% 
@@ -150,37 +148,37 @@ node_list_string <- paste0(
   "Target Nodes: ARCTIC, BCODMO, BOREALIS, DRYAD, DVNO, ESS_DIVE, HD, KNB, LTER, OBIS, PDC, PISCO"
 )
 
-ggplot2::ggplot() +
+ggplot() +
     # all individual nodes mapped in the background (thin, muted grey lines)
-    ggplot2::geom_line(
+    geom_line(
         data = node_nons, 
-        ggplot2::aes(x = ym, y = mean, group = repo, color = "Other Nodes"), 
+        aes(x = ym, y = mean, group = repo, color = "Other Nodes"), 
         #color = "gray", 
         linewidth = 0.5,
     ) +
     
-    ggplot2::geom_line(
+    geom_line(
         data = node_filtered, 
-        ggplot2::aes(x = ym, y = mean, group = repo, color = "Target Nodes"), 
+        aes(x = ym, y = mean, group = repo, color = "Target Nodes"), 
         #color = "aquamarine3", 
         linewidth = 0.7,
         alpha = 0.8
     ) +
     
     # node average mapped on top 
-    ggplot2::geom_line(
+    geom_line(
         data = average_timeline, 
-        ggplot2::aes(x = ym, y = mean, color = "DataONE Federation"), 
+        aes(x = ym, y = mean, color = "DataONE Federation"), 
         #color = "#ff3366", 
         linewidth = 1,
         alpha = 0.8
     ) +
     
-    ggplot2::facet_wrap(~metric, ncol = 2, scales = "fixed") +
+    facet_wrap(~metric, ncol = 2, scales = "fixed") +
     
-    ggplot2::scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
-    ggplot2::scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
-    ggplot2::labs(
+    scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+    scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+    labs(
         title = "",
         x = "Upload Date",
         y = "Score",
@@ -196,16 +194,16 @@ ggplot2::ggplot() +
     )
   ) +
     
-    ggplot2::theme_minimal(base_size = 13) +
-    ggplot2::theme(
-        plot.title = ggplot2::element_text(face = "bold", size = 16, margin = margin(b = 4)),
-        plot.subtitle = ggplot2::element_text(color = "grey40", size = 11, margin = margin(b = 15)),
-        strip.background = ggplot2::element_rect(fill = "grey95", color = NA),
-        strip.text = ggplot2::element_text(face = "bold", color = "grey20", margin = margin(t = 6, b = 6)),
-        panel.grid.minor = ggplot2::element_blank(),
-        panel.spacing = ggplot2::unit(1.5, "lines"),
-        axis.title.x = ggplot2::element_text(margin = margin(t = 10)),
-        axis.title.y = ggplot2::element_text(margin = margin(r = 10)),
+    theme_minimal(base_size = 13) +
+    theme(
+        plot.title = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+        plot.subtitle = element_text(color = "grey40", size = 11, margin = margin(b = 15)),
+        strip.background = element_rect(fill = "grey95", color = NA),
+        strip.text = element_text(face = "bold", color = "grey20", margin = margin(t = 6, b = 6)),
+        panel.grid.minor = element_blank(),
+        panel.spacing = unit(1.5, "lines"),
+        axis.title.x = element_text(margin = margin(t = 10)),
+        axis.title.y = element_text(margin = margin(r = 10)),
         axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
         legend.position = "bottom",
         plot.caption = element_text(
@@ -217,6 +215,67 @@ ggplot2::ggplot() +
     )
 ```
 
+## Curation Effects
+
+```{r}
+data_clean <- assign_sequence_id(data)
+data_ver <- get_first_last_versions(data_clean)
+```
+
+```{r}
+data_ver <- data_ver %>% 
+    filter(version_position != "only_version")
+```
+
+```{r}
+target_nodes <- c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE", "urn:node:EDI", "urn:node:LTER", "urn:node:PISCO")
+
+version_timelines <- data_ver %>% 
+    filter(datasource %in% target_nodes) %>% 
+    group_by(datasource, version_position) %>% 
+    group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
+    ungroup()
+
+plot_data <- version_timelines %>%
+    filter(version_position %in% c("first", "last"))
+  
+line_styles <- c(
+    "first" = "dashed",
+    "last"  = "solid"
+)
+
+fair_colors <- c(
+    "Findable"      = "#c70a61", 
+    "Accessible"    = "#ff582d", 
+    "Interoperable" = "#1a6379", 
+    "Reusable"      = "#60c5e4"
+)
+  
+p <- ggplot(
+    data = plot_data, 
+    aes(x = ym, y = mean, linetype = version_position, color = metric)
+) +
+    geom_line(linewidth = 1, alpha = 0.8) + 
+    facet_wrap(~datasource, ncol = 2, scales = "fixed") +
+    scale_linetype_manual(values = line_styles) +
+    scale_color_manual(values = fair_colors) +
+    theme_minimal() +
+    labs(
+        title = "",
+        linetype = "Version",
+        color = "FAIR Metric",
+        x = NULL,
+        y = "Score"
+    ) +
+    theme(
+        legend.position = "bottom",
+        legend.box = "vertical", # Stacks the two legends cleanly
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        strip.text = element_text(face = "bold", size = 10) # Makes node names pop
+    )
+
+p
+```
 
 
 ## Older

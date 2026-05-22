@@ -13,11 +13,14 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(arrow)
 library(here)
+devtools::load_all()
 ```
 
-
 ```{r}
-run_results <- open_dataset(here("../metadig-data/run-data-0.5.0"))
+data <- get_agg_data()
+data_clean <- assign_sequence_id(data) # takes about 5 minutes
+
+run_results <- data_clean
 check_results <- open_dataset(here("../metadig-data/check-data-0.5.0"))
 ```
 
@@ -71,8 +74,12 @@ plot_suite_results <- function(df, node = NA, fair_suite = NA) {
 }
 
 runs_versioned <- run_results %>%
-    filter(run_status != "ERROR") %>% 
-    mutate(series_id = coalesce(series_id, obj_id)) %>% 
+    mutate(dateSplit = case_when(
+        date_uploaded < lead(date_uploaded, n=1) ~ "INITIAL",
+        date_uploaded > lag(date_uploaded, n=1) ~ "FINAL",
+    TRUE ~ "TBD"))
+
+
     arrange(date_uploaded) %>%             
     group_by(series_id) %>% 
     collect() %>% 

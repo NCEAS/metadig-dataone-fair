@@ -12,7 +12,6 @@ Description: A manuscript about DataONE FAIR using MetaDIG.
 License: CC BY 4.0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Config/Needs/website: rmarkdown
 Imports:
     arrow,
@@ -29,3 +28,4 @@ Suggests:
     quarto,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0
