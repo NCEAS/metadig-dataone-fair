@@ -98,6 +98,52 @@ repo_fair_plots <- checks_current %>%
     purrr::imodify( ~plot_suite_results(df = as.data.frame(.x), node = .y, fair_suite = fair_suite))
 ```
 
+# Curation Effects
 
+```{r}
+# source calculate-individual-scores
+
+checks_ver <- checks_clean  %>% 
+    group_by(series_id) %>%
+    filter(version=="INITIAL",
+         date_uploaded < parse_datetime("2016-03-21")) %>%
+    summarise(n=n())
+
+
+plotData_3 <- checks_clean %>%
+  group_by(check_type, check_level, check_name) %>%
+  summarise(meanDiff = mean(checkDiff, na.rm = T),
+            scoreSign = sign(meanDiff))
+
+plotData_3 <- checks_clean %>%
+  filter(checkDiff==-1) %>%
+  group_by(check_type, check_level, check_name) %>%
+  summarise(n_series=n()/2) %>%
+  right_join(select(plotData_3, "check_name", "meanDiff")) %>%
+  mutate(n_series = replace_na(n_series, 0))
+```
+
+
+```{r}
+ ggplot(plotData_3, aes(x=meanDiff, y=check_name %>% forcats::fct_reorder(-meanDiff), size=n_series)) +
+  geom_point() +
+  facet_wrap(~ check_type, scale="free") +
+  scale_size_area(max_size = 6) +
+  #theme_ADC_modified +
+    theme_bw() +
+  coord_cartesian(xlim = c(-0.60, 0.60)) +
+  xlab("") +
+  ylab("") +
+  theme(strip.text.x = element_text(size = 14, colour = "black", face="bold"),
+        panel.border = element_rect(colour = "black", fill=NA)) +
+  theme(legend.position = "top",
+        legend.background = element_blank(),
+        legend.box.background = element_rect(colour = "black")) +
+  guides(size=guide_legend(title="Series_IDs with Negative Check"))
+```
+
+
+Figure-03_2020-09-30_CalculatedChangeOfIndividualDocs.jpg
+Figure-12_2020-11-05_AggregateScores-FAIR-RunningMean.png
 
 
