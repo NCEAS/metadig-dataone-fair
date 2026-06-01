@@ -145,7 +145,7 @@ average_timeline <- get_scores_rolling_mean_ym(data)
 
 ```{r}
 node_list_string <- paste0(
-  "Target Nodes: ARCTIC, BCODMO, BOREALIS, DRYAD, DVNO, ESS_DIVE, HD, KNB, LTER, OBIS, PDC, PISCO"
+    "Target Nodes: ARCTIC, BCODMO, BOREALIS, DRYAD, DVNO, ESS_DIVE, HD, KNB, LTER, OBIS, PDC, PISCO"
 )
 
 ggplot() +
@@ -186,13 +186,13 @@ ggplot() +
     ) +
     
     scale_color_manual(
-    name = "",
-    values = c(
-      "Other Nodes" = "grey85",
-      "Target Nodes" = "turquoise3",
-      "DataONE Federation"             = "#ff3366"
-    )
-  ) +
+        name = "",
+        values = c(
+            "Other Nodes" = "grey85",
+            "Target Nodes" = "turquoise3",
+            "DataONE Federation"             = "#ff3366"
+        )
+    ) +
     
     theme_minimal(base_size = 13) +
     theme(
@@ -238,7 +238,7 @@ version_timelines <- data_ver %>%
 
 plot_data <- version_timelines %>%
     filter(version_position %in% c("first", "last"))
-  
+
 line_styles <- c(
     "first" = "dashed",
     "last"  = "solid"
@@ -250,7 +250,7 @@ fair_colors <- c(
     "Interoperable" = "#1a6379", 
     "Reusable"      = "#60c5e4"
 )
-  
+
 p <- ggplot(
     data = plot_data, 
     aes(x = ym, y = mean, linetype = version_position, color = metric)
@@ -276,6 +276,82 @@ p <- ggplot(
 
 p
 ```
+
+```{r}
+ggsave("fair_first_last_versions.png", p, width = 10, height = 8, units = "in")
+```
+
+
+```{r}
+data_change_avg <- data_ver %>% 
+    group_by(datasource, version_position) %>% 
+    summarise( n= n(),
+               Findable = mean(scoreFindable),
+               Accessible = mean(scoreAccessible),
+               Interoperable = mean(scoreInteroperable),
+               Reusable = mean(scoreReusable), .groups = "drop") %>% 
+    filter(n > 100) %>% 
+    filter(!grepl("CANWIN", datasource)) %>% 
+    pivot_longer(cols = c(Findable, Accessible, Interoperable, Reusable), names_to = "metric", values_to = "mean") %>% 
+    mutate(datasource = gsub("urn:node:", "", datasource)) %>% 
+    mutate(mean = mean*100)
+
+trajectory_data <- data_change_avg %>%
+    select(datasource, metric, version_position, mean) %>%
+    pivot_wider(names_from = version_position, values_from = mean) %>%
+    mutate(
+        score_change = case_when(
+            last > first ~ "Increased",
+            last < first ~ "Decreased",
+            TRUE         ~ "No Change"
+        )
+    ) %>%
+    select(datasource, metric, score_change)
+
+data_enhanced <- data_change_avg %>%
+    left_join(trajectory_data, by = c("datasource", "metric")) %>%
+    mutate(datasource = forcats::fct_reorder(datasource, mean))
+
+```
+
+```{r}
+ggplot(data_enhanced, aes(x = mean, y = datasource)) +
+    geom_line(aes(group = datasource, color = score_change), linewidth = 1.2) +
+    geom_point(aes(shape = version_position), size = 3, color = "black") +
+    facet_wrap(~ metric, scales = "free_x") +
+    scale_color_manual(
+        values = c(
+            "Increased" = "#009E73", 
+            "Decreased" = "#D55E00", 
+            "No Change" = "gray70"
+        ), 
+    ) +
+    scale_shape_manual(
+        values = c(
+            "first" = 1,  
+            "last"  = 16  
+        )
+    ) +
+    theme_bw() +
+    labs(
+        title = "FAIR Score Changes: Initial vs. Final Versions",
+        x = "Mean Score",
+        y = NULL,
+        color = "Score Trajectory",
+        shape = "Version State"
+    ) +
+    theme(
+        legend.position = "bottom",
+        legend.box = "vertical",
+        panel.grid.minor = element_blank()
+    ) +
+    guides(color = "none")
+```
+
+```{r}
+ggsave("FAIR-inital-final-mean.png", width = 6, height = 8, units = "in")
+```
+
 
 
 ## Older
