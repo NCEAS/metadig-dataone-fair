@@ -17,10 +17,21 @@ devtools::load_all()
 ```
 
 ```{r}
-data <- get_agg_data()
-data_clean <- assign_sequence_id(data) # takes about 5 minutes
+run_results <- open_dataset(here("../metadig-data/run-data-0.5.0")) %>% 
+    collect() %>% 
+    rename(pid = obj_id, obsoletedBy = obsoleted_by)
+data_clean <- assign_sequence_id(run_results) # takes about 5 minutes
 
-run_results <- data_clean
+runs <- data_clean %>% 
+    mutate(dialect = case_when(
+        grepl("ecoinformatics", format_id) ~ "EML",
+        grepl("isotc211", format_id) ~ "ISO",
+        grepl("schema", format_id) ~ "SOSO"
+    )) %>% 
+    rename(dateUploaded = date_uploaded)
+
+runs_ver <- get_first_last_versions(runs)
+
 check_results <- open_dataset(here("../metadig-data/check-data-0.5.0"))
 ```
 
@@ -29,125 +40,47 @@ check_results <- open_dataset(here("../metadig-data/check-data-0.5.0"))
 NB: This is currently for just a subset of nodes!
 
 ```{r summary}
-status_palette <- c("grey", "salmon2", "seagreen4")
-
-checks_subset <- check_results %>% 
-    filter(tolower(check_status) != "error") %>% 
-    filter(check_level != "INFO") %>% 
-    left_join(run_results) %>% 
-    filter(origin_mn %in% c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE", "urn:node:EDI"))
-
-overall_status <- checks_subset %>% 
-    group_by(origin_mn, check_level, check_status, check_type) %>% 
-    summarize(n=n()) %>% 
-    collect() 
-
-ggplot(overall_status, aes(x=forcats::fct_rev(check_level), fill=check_status)) + 
-    geom_col(aes(y = n), position="fill") +
-    theme_bw() +
-    scale_fill_manual(values = status_palette) +
-    xlab(element_blank()) +
-    ylab("Proportion") +
-    facet_grid(rows = vars(origin_mn), cols = vars(check_type))
-
-```
-
-## Plot FAIR suite results by check and repository
-
-
-To summarize the current status of each repository collection, I selected only the most recent version of each metadata document from each version chain, and then calculated the proportion of documents for which each of the FAIR `r fair_suite` checks pass. Plots are created with results grouped by the FAIR type of the check and the reposistory.
-
-```{r fair_breakdown_by_node, fig.width="20", echo=FALSE}
-
-plot_suite_results <- function(df, node = NA, fair_suite = NA) {
-    p <- ggplot(df, aes(x=forcats::fct_rev(check_id), fill=check_status)) + 
-        geom_col(aes(y = n), position="fill") +
-        theme_bw() +
-        ggtitle(paste0(node, ': FAIR Suite ', fair_suite)) +
-        scale_fill_manual(values = status_palette) +
-        facet_wrap(facets = ~ check_type, ncol = 4) +
-        xlab("Check Name") +
-        ylab("Proportion") +
-        coord_flip()
-    ggsave(paste0("figures/fair-breakdown-", node, ".png"), height=10, width=10)
-    return(p)
-}
-
-runs_versioned <- run_results %>%
-    mutate(dateSplit = case_when(
-        date_uploaded < lead(date_uploaded, n=1) ~ "INITIAL",
-        date_uploaded > lag(date_uploaded, n=1) ~ "FINAL",
-    TRUE ~ "TBD"))
-
-
-    arrange(date_uploaded) %>%             
-    group_by(series_id) %>% 
-    collect() %>% 
-    mutate(ser_version = row_number()) %>% 
-    ungroup() %>% 
-    mutate(repo = str_remove(origin_mn, pattern = "urn:node:"))
-
-runs_last <- runs_versioned %>% 
-    filter(!is.na(obsoleted_by))
-
-checks_current <- check_results %>% 
-    filter(check_status != "ERROR", check_type != "INFO") %>% 
-    inner_join(runs_last, by = "run_id") %>% 
-    group_by(repo, check_id, check_status, check_type) %>% 
-    summarise(n = n(), .groups = "drop") %>% 
-    arrange(check_type) %>% 
+checks_calc <- check_results %>% 
+    inner_join(runs_ver) %>% 
+    mutate(
+        check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status),
+    ) %>%
+    filter(check_status != "ERROR") %>% 
+    group_by(check_name, dialect, check_type, check_level) %>%
+    summarise(
+        total_runs = n(),
+        mean_score = mean(check_status == "SUCCESS", na.rm = TRUE) * 100,
+        .groups = "drop"
+    ) %>%
     collect()
 
-fair_suite <- '0.5.0'
 
-repo_fair_plots <- checks_current %>%
-    split(.$repo) %>% 
-    purrr::imodify( ~plot_suite_results(df = as.data.frame(.x), node = .y, fair_suite = fair_suite))
-```
+plot_ready <- checks_calc %>%
+  mutate(check_name_sorted = tidytext::reorder_within(check_name, mean_score, check_type))
 
-# Curation Effects
-
-```{r}
-# source calculate-individual-scores
-
-checks_ver <- checks_clean  %>% 
-    group_by(series_id) %>%
-    filter(version=="INITIAL",
-         date_uploaded < parse_datetime("2016-03-21")) %>%
-    summarise(n=n())
-
-
-plotData_3 <- checks_clean %>%
-  group_by(check_type, check_level, check_name) %>%
-  summarise(meanDiff = mean(checkDiff, na.rm = T),
-            scoreSign = sign(meanDiff))
-
-plotData_3 <- checks_clean %>%
-  filter(checkDiff==-1) %>%
-  group_by(check_type, check_level, check_name) %>%
-  summarise(n_series=n()/2) %>%
-  right_join(select(plotData_3, "check_name", "meanDiff")) %>%
-  mutate(n_series = replace_na(n_series, 0))
+ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
+  geom_point(aes(color = dialect), size = 3, alpha = 0.8) +
+  facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
+  tidytext::scale_y_reordered() +
+  scale_color_manual(
+      values = c(
+          "EML" = "#26547c", 
+          "ISO" = "#ef476f", 
+          "SOSO" = "#ffd166"
+      )
+  ) +
+  theme_bw() +
+  theme(
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      panel.grid.minor = element_blank(),
+      strip.background = element_rect(fill = "gray95"),
+      strip.text = element_text(face = "bold", size = 11)
+  ) +
+    labs(x = "", y = "")
 ```
 
 
-```{r}
- ggplot(plotData_3, aes(x=meanDiff, y=check_name %>% forcats::fct_reorder(-meanDiff), size=n_series)) +
-  geom_point() +
-  facet_wrap(~ check_type, scale="free") +
-  scale_size_area(max_size = 6) +
-  #theme_ADC_modified +
-    theme_bw() +
-  coord_cartesian(xlim = c(-0.60, 0.60)) +
-  xlab("") +
-  ylab("") +
-  theme(strip.text.x = element_text(size = 14, colour = "black", face="bold"),
-        panel.border = element_rect(colour = "black", fill=NA)) +
-  theme(legend.position = "top",
-        legend.background = element_blank(),
-        legend.box.background = element_rect(colour = "black")) +
-  guides(size=guide_legend(title="Series_IDs with Negative Check"))
-```
 
 
 Figure-03_2020-09-30_CalculatedChangeOfIndividualDocs.jpg
