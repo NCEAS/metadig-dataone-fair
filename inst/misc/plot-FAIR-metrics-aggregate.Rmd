@@ -31,9 +31,15 @@ FAIR metrics scores are preliminary and are based on the draft, proposed approac
 Comparison across all repositories and across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
 
 ```{r}
+node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/refs/heads/main/data/node_status.csv") %>% 
+    filter(as.Date(cn.latest) > as.Date("2023-01-01"))
+```
+
+```{r}
 # calculates mean FAIR scores for each node, on most recent versions only, across all time
 data <- get_agg_data()
 node_scores <- get_node_scores_all_time(data)
+data_recent <- data %>% filter(datasource %in% node_status$node_id)
 ```
 
 ```{r}
@@ -215,6 +221,33 @@ ggplot() +
     )
 ```
 
+### New mean method
+
+
+```{r}
+future::plan(multisession, workers = 5)
+
+results_by_node <- data_recent %>%
+    split(.$datasource) %>%
+    furrr::future_map_dfr(~ get_scores_monthly_state(.x), .id = "datasource")
+
+t <- results_by_node %>% 
+    filter(num_mean > 10)
+
+```
+
+```{r}
+ggplot(t, aes(x = ym, y = mean, color = metric)) +
+    geom_point() +
+    facet_wrap(~datasource, ncol = 3) +
+    theme_bw()
+
+
+ggsave("all_nodes_timeline_pts.png", width = 6, height = 30, units = "in")
+    
+```
+
+
 ## Curation Effects
 
 ```{r}
@@ -351,6 +384,99 @@ ggplot(data_enhanced, aes(x = mean, y = datasource)) +
 ```{r}
 ggsave("FAIR-inital-final-mean.png", width = 6, height = 8, units = "in")
 ```
+
+
+## F and A vs I and R
+
+```{r}
+df <- data %>% 
+    filter(is.na(obsoletedBy)) %>% 
+    filter(dateUploaded > as.Date("2015-01-01")) %>% 
+    mutate(dialect = case_when(
+        grepl("ecoinformatics", formatId) ~ "EML",
+        grepl("isotc211", formatId) ~ "ISO",
+        grepl("schema", formatId) ~ "SOSO"
+    )) %>% 
+    split(.$dialect) %>% 
+    purrr::map_dfr(~ get_scores_mean_ym(.x), .id = "dialect")
+    
+```
+
+
+```{r}
+get_variance <- function(target_metric, data) {
+  
+  df_subset <- data %>% 
+    filter(metric == target_metric) %>% 
+    mutate(time_numeric = as.numeric(as.factor(ym)))
+  
+  fit <- lm(score_100 ~ time_numeric + dialect, data = df_subset)
+  anova_results <- anova(fit)
+  
+  ss_total <- sum(anova_results$`Sum Sq`)
+  
+  data.frame(
+    FAIR_Metric = toupper(target_metric),
+    Driver = rownames(anova_results),
+    Sum_of_Squares = anova_results$`Sum Sq`,
+    Percent_Explained = (anova_results$`Sum Sq` / ss_total) * 100
+  )
+}
+metrics_to_run <- c("f", "a", "i", "r")
+
+all_variance_explained <- map_dfr(metrics_to_run, ~get_variance(.x, df))
+```
+
+
+```{r}
+df %>% 
+    filter(metric %in% c("f", "a", "i", "r")) %>% 
+ggplot(aes(x = ym, y = score_100, color = metric)) +
+    geom_point() +
+    geom_smooth() +
+    facet_wrap(~dialect)
+```
+
+
+## Repo classification with clustering
+
+```{r}
+repo_summary <- data %>% 
+    group_by(datasource) %>% 
+    summarise(unique_datasets = n_distinct(sequenceId),
+              mean_versions_per_dataset = n() / n_distinct(sequenceId),
+              .groups = "drop")
+```
+
+```{r}
+cluster_data <- repo_summary %>%
+    filter(unique_datasets > 100) %>% 
+    mutate(log_datasets = log10(unique_datasets)) %>% 
+    mutate(log_versions = log10(mean_versions_per_dataset))
+
+repo_scaled <- scale(cluster_data %>% select(log_datasets, log_versions))
+
+wss <- sapply(1:10, function(k){
+  kmeans(repo_scaled, centers = k, nstart = 25)$tot.withinss
+})
+```
+
+```{r}
+plot(1:10, wss, type="b", pch = 19, frame = FALSE)
+# 3
+```
+
+```{r}
+set.seed(123) 
+
+# nstart = 25 runs the algorithm 25 times with random initial centroids and picks the best one
+fit_kmeans <- kmeans(repo_scaled, centers = 3, nstart = 25)
+
+# Add the cluster assignments back to our data
+final_clusters <- cluster_data %>%
+  mutate(cluster = as.factor(fit_kmeans$cluster))
+```
+
 
 
 
