@@ -13,35 +13,42 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(arrow)
 library(here)
+library(tidytext)
 devtools::load_all()
 ```
 
+Load in the check data.
+
 ```{r}
-run_results <- open_dataset(here("../metadig-data/run-data-0.5.0")) %>% 
+if (file.exists("/Users/jclark/metadig-data/runs_sequence.csv")){
+  data_clean <- read.csv("/home/jclark/metadig-data/runs_sequence.csv")
+} else {
+  run_results <- open_dataset("/home/jclark/metadig-data/run-data-0.5.0") %>% 
     collect() %>% 
     rename(pid = obj_id, obsoletedBy = obsoleted_by)
-data_clean <- assign_sequence_id(run_results) # takes about 5 minutes
+  data_clean <- assign_sequence_id(run_results) %>%  # takes about 5 minutes
+    rename(dateUploaded = date_uploaded)
+}
 
 runs <- data_clean %>% 
     mutate(dialect = case_when(
         grepl("ecoinformatics", format_id) ~ "EML",
         grepl("isotc211", format_id) ~ "ISO",
         grepl("schema", format_id) ~ "SOSO"
-    )) %>% 
-    rename(dateUploaded = date_uploaded)
+    ))
 
 runs_ver <- get_first_last_versions(runs)
 
-check_results <- open_dataset(here("../metadig-data/check-data-0.5.0"))
+check_results <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0")
 ```
 
-# Summarize check data
+## Check results by dialect
 
-NB: This is currently for just a subset of nodes!
+A preliminary look at check results by dialect. Note: ISO representation is not very good yet in this sample as some of the bigger ISO nodes (eg PANGAEA) have not yet run.
 
 ```{r summary}
 checks_calc <- check_results %>% 
-    inner_join(runs_ver) %>% 
+    inner_join(runs) %>% 
     mutate(
         check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status),
     ) %>%
@@ -80,10 +87,117 @@ ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
     labs(x = "", y = "")
 ```
 
+## Checks that error
+
+Worth digging in a little to check out which checks frequently error. 
+
+```{r}
+errors <- check_results %>% 
+  filter(check_level != "INFO") %>% 
+  inner_join(runs) %>% 
+  group_by(check_name, check_type, check_level, dialect) %>% 
+  summarise(n = n(),
+            n_error = sum(check_status == "ERROR")) %>% 
+  collect() %>% 
+  mutate(pct_error = 100*n_error/n) %>% 
+  mutate(check_id_sorted = reorder_within(check_name, pct_error, check_level))
+```
+
+```{r}
+ggplot(errors, aes(x = pct_error, y = check_id_sorted)) +
+  geom_point(aes(color = dialect)) +
+  facet_wrap(~ check_level, scales = "free_y", ncol = 2) +
+  scale_y_reordered() +
+  scale_color_manual(
+      values = c(
+          "EML" = "#26547c", 
+          "ISO" = "#ef476f", 
+          "SOSO" = "#ffd166"
+      )
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+Overall for EML/ISO things look good, very infrequent errors. Slight uptick in a couple of places, maybe most notable Resource Landing Page present which I think may be erroring on the resolvable part of that check. Big store here though, is from the above plot, it's clear that a huge amount of SOSO entity checks are erroring. I know we need to dig deeper by node, and we can see some trends. First, CANWIN fails all checks, which I knew. Second, PANGAEA is failing on almost all of the entity checks that got flagged from the plot above.
+
+```{r}
+errors_by_node <- check_results %>% 
+  filter(check_level != "INFO") %>% 
+  inner_join(runs) %>% 
+  filter(dialect == "SOSO") %>% 
+  group_by(check_name, check_type, check_level, origin_mn) %>% 
+  summarise(n = n(),
+            n_error = sum(check_status == "ERROR")) %>% 
+  collect() %>% 
+  mutate(pct_error = 100*n_error/n)
+
+DT::datatable(errors_by_node)
+```
+
+Looking at the total makeup of what nodes contribute to the SOSO scores below, PANGAEA dominates with 60% of all scores. This conveniently matches the above figure where 60% of the entity checks are failing. So PANGAEA makes up the entire signal there. This is especially unfortunate because when you look at their individual docs, they should actually be passing. Their SOSO is pretty good, the nuances of their entity framing are just not captured in our jq. :(
+
+Overall, they will not be explicitly penalized for this since errored checks don't contribute to the score, but because the denominator is lower for them, they are disproportinately penalized for failing required checks. For example, if we have 10 checks and they fail 1 required check their score is 9/10. If they fail one and 3 error their score is 6/7. 9/10 > 6/7.
+
+```{r}
+runs_soso <- runs %>% 
+  filter(dialect == "SOSO") %>% 
+  group_by(origin_mn) %>% 
+  summarise(pct_total = 100*n()/nrow(runs %>% filter(dialect == "SOSO")))
+
+DT::datatable(runs_soso)
+```
 
 
+## Check results by version
 
-Figure-03_2020-09-30_CalculatedChangeOfIndividualDocs.jpg
-Figure-12_2020-11-05_AggregateScores-FAIR-RunningMean.png
+Remake of Chris Beltz's dumbell plot showing change in check scores from initial to final version. Somewhat expectedly, this doesn't show too much since overall there isn't much change from initial to final across all of dataone. Toggle the Arctic filter to see results that look a little more familiar.
 
+```{r}
+checks_ver <- check_results %>% 
+    inner_join(runs_ver) %>% 
+    #filter(origin_mn == "urn:node:ARCTIC") %>% 
+    mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>%
+    filter(check_status != "ERROR") %>% 
+    group_by(check_name, check_type, check_level) %>%
+    summarise(
+        total_runs = n(),
+        score_first = mean(if_else(version_position == "first", 
+                                   if_else(check_status == "SUCCESS", 100, 0), 
+                                   NA_real_), na.rm = TRUE),
+        score_last  = mean(if_else(version_position == "last",  
+                                   if_else(check_status == "SUCCESS", 100, 0), 
+                                   NA_real_), na.rm = TRUE),
+        
+        .groups = "drop"
+    ) %>%
+    mutate(
+        pct_point_change = score_last - score_first,
+        relative_pct_change = if_else(score_first == 0, NA_real_, ((score_last - score_first) / score_first) * 100)
+    ) %>%
+    collect()
+
+checks_ver_plot <- checks_ver %>% 
+    mutate(check_name_sorted = reorder_within(check_name, score_last, check_type)) %>%
+    pivot_longer(cols = c(score_first, score_last), names_to = "version", values_to = "score") %>%
+    mutate(version = if_else(version == "score_first", "First Version", "Last Version"))
+```
+
+```{r}
+ggplot(checks_ver_plot, aes(x = score, y = check_name_sorted)) +
+    geom_line(aes(group = check_name_sorted), color = "gray70", linewidth = 1) +
+    geom_point(aes(color = version), size = 3.5, alpha = 0.9) +
+    facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
+    scale_y_reordered() +
+    scale_color_manual(
+        values = c(
+            "First Version" = "#E69F00", 
+            "Last Version"  = "#0072B2"
+        )
+    ) +
+
+    theme_bw() +
+    theme(legend.position = "bottom") +
+    labs(x = "", y = "")
+```
 
