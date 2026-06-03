@@ -14,15 +14,15 @@ extract_run <- function(doc, filename) {
     obj_id <- extract_value(doc, "/ns0:run/objectIdentifier")
     suite_id <- extract_value(doc, "/ns0:run/suiteId")
     run_status <- extract_value(doc, "/ns0:run/runStatus")
-    
+
     origin_mn <- extract_value(doc, "/ns0:run/sysmeta/originMemberNode")
     date_uploaded <- extract_value(doc, "/ns0:run/sysmeta/dateUploaded") # Fixed typo
     format_id <- extract_value(doc, "/ns0:run/sysmeta/formatId")
     obsoletes <- extract_value(doc, "/ns0:run/sysmeta/obsoletes")
     obsoleted_by <- extract_value(doc, "/ns0:run/sysmeta/obsoletedBy")
     series_id <- extract_value(doc, "/ns0:run/sysmeta/seriesId")
-    
-    data.frame(run_id, obj_id, series_id, suite_id, run_status, origin_mn, 
+
+    data.frame(run_id, obj_id, series_id, suite_id, run_status, origin_mn,
                date_uploaded, format_id, obsoletes, obsoleted_by, filename, stringsAsFactors = FALSE)
 }
 
@@ -34,10 +34,10 @@ extract_run <- function(doc, filename) {
 extract_checks <- function(doc) {
     run_id <- extract_value(doc, "/ns0:run/id")
     results <- xml2::xml_find_all(doc, "/ns0:run/result")
-    
+
     # If no results, return empty dataframe early to prevent map_df errors
-    if(length(results) == 0) return(data.frame()) 
-    
+    if(length(results) == 0) return(data.frame())
+
     map_df(.x = results, .f = extract_result) %>%
         mutate(run_id = run_id)
 }
@@ -62,7 +62,7 @@ extract_result <- function(result) {
 #'
 #' @param input An input vector.
 #' @param by The length of the resulting vectors.
-#' 
+#'
 #' @importFrom purrr lmap
 slice <- function(input, by=2) {
     starts <- seq(1,length(input),by)
@@ -76,16 +76,16 @@ slice <- function(input, by=2) {
 process_xml_file <- function(filename) {
     tryCatch({
         doc <- read_xml(filename)
-        
+
         run_data <- extract_run(doc, filename)
         check_data <- extract_checks(doc)
-        
+
         list(run = run_data, check = check_data)
-        
+
     }, error = function(e) {
         # Log the problematic filename to your console
         message(paste("CRITICAL ERROR in file:", filename, "\nReason:", e$message))
-        
+
         # Return empty data frames so bind_rows() won't break later
         list(run = data.frame(run_id = "",
                               obj_id = "",
@@ -93,8 +93,8 @@ process_xml_file <- function(filename) {
                               suite_id = "",
                               run_status = "ERROR",
                               origin_mn = "",
-                              date_uploaded = "", 
-                              format_id = "", 
+                              date_uploaded = "",
+                              format_id = "",
                               obsoletes = "",
                               filename = filename), check = data.frame())
     })
@@ -102,9 +102,9 @@ process_xml_file <- function(filename) {
 
 #' Batch Process MetaDIG XML Documents into Arrow Parquet Datasets
 #'
-#' Scans an input directory for XML documents, cross-references files against an 
-#' existing Apache Arrow database to prevent redundant parsing, processes new files 
-#' asynchronously via an isolated parallel background cluster, and appends the final partitioned 
+#' Scans an input directory for XML documents, cross-references files against an
+#' existing Apache Arrow database to prevent redundant parsing, processes new files
+#' asynchronously via an isolated parallel background cluster, and appends the final partitioned
 #' structures directly into separate Arrow Parquet output tracking hubs.
 #'
 #' @param input_docs Character string specifying source directory containing raw XML check files.
@@ -119,62 +119,62 @@ process_xml_file <- function(filename) {
 #' @importFrom future.apply future_lapply
 #' @export
 #'
-extract_check_data <- function(input_docs, out_runs_dir, out_checks_dir){
-    
+extract_check_data <- function(input_docs, out_runs_dir, out_checks_dir, workers = 10){
+
     files <- dir(input_docs, full.names = TRUE, recursive = TRUE)
-    
+
     # check to make sure we don't already have the files
     if (dir.exists(out_runs_dir) && length(dir(out_runs_dir)) > 0) {
         existing_runs <- open_dataset(out_runs_dir)
-        
-        processed_files <- existing_runs %>% 
-            select(filename) %>% 
-            distinct() %>% 
-            collect() %>% 
+
+        processed_files <- existing_runs %>%
+            select(filename) %>%
+            distinct() %>%
+            collect() %>%
             pull(filename)
-        
+
         files <- files[!(basename(files) %in% basename(processed_files))]
     }
-    
+
     # stop if nothing new
     if (length(files) == 0) {
         message("All files have already been processed! Nothing to do.")
         return(invisible(NULL))
     }
-    
+
     message(paste("Processing", length(files), "new XML files..."))
-    
+
     # parallel process fheck docs
-    plan(multisession, workers = 8)
+    plan(multisession, workers = workers)
     all_results <- future_lapply(files, process_xml_file)
-    
+
     new_runs_df  <- bind_rows(lapply(all_results, `[[`, "run"))
     new_checks_df <- bind_rows(lapply(all_results, `[[`, "check"))
-    
+
     # write_dataset handles creating the folder if it doesn't exist, and safely
     # generates a new unique chunk file inside it without reading or overwriting old data.
     if (nrow(new_runs_df) > 0) {
         write_dataset(
-            dataset = new_runs_df, 
+            dataset = new_runs_df,
             path = out_runs_dir,
             format = "parquet",
             partitioning = "origin_mn",
             basename_template = paste0("append-", format(Sys.time(), "%Y%m%d_%H%M%S"), "-{i}.parquet")
         )
     }
-    
+
     # write checks (partitioned by check type and level)
     if (nrow(new_checks_df) > 0) {
         write_dataset(
-            dataset = new_checks_df, 
-            path = out_checks_dir, 
+            dataset = new_checks_df,
+            path = out_checks_dir,
             format = "parquet",
             partitioning = c("check_type", "check_level"),
             basename_template = paste0("append-", format(Sys.time(), "%Y%m%d_%H%M%S"), "-{i}.parquet")
         )
     }
-    
+
     message("Processing complete and new chunks appended to Arrow datasets.")
 }
 
-    
+
