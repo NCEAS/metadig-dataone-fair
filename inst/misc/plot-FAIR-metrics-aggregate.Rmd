@@ -5,8 +5,6 @@ date: "5/10/2019"
 output: html_document
 ---
 
-DataONE has consistently focused on interoperability among data repositories to enable seamless access to well-described data on the Earth and the environment.  Our existing services promote data discovery and access through harmonization of the diverse metadata specifications used across communities, and through our integrated data search portal and services.  In terms of the FAIR principles, we have done a good job at Findable and Accessible, while as a community we have placed less emphasis on Interoperable and Reusable.  We present new DataONE services for quantitatively assessing metadata completeness and effectiveness relative to the FAIR principles. The services produce guidance for FAIRness at both the level of an individual data set and trends through time for repository, user, and funder data collections. These analytical results regarding conformance to FAIR principles are preliminary and based on proposed quantitative assessment metrics for FAIR which will be changed with input from the community.  Thus, these results should not be viewed as conclusive about the data sets presented, but rather illustrate the types of quantitative comparisons that will be able to be made when the FAIR metrics at DataONE have been finalized.
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
@@ -19,398 +17,512 @@ library(lubridate)
 library(grid)
 library(here)
 library(patchwork)
+library(gt)
 devtools::load_all(here())
 ```
 
 # Load FAIR metrics scores
 
-FAIR metrics scores are preliminary and are based on the draft, proposed approach within DataONE for assessing completenness of metadata relative to the four FAIR principles: Findable, Accessible, Interoperable, and Reusable. These metrics are not yet complete, and so this analysis is meant as a comparison of the metrics using real-workd metadata collections.  Future versions of the metrics that have been updated with communty input will be used to assess DataONE collections.
+These data are loaded from solr, and are calculated by the scorer. I recalculated aggregate scores by node from the raw check data and got very similar results so I see no reason not to trust them.
 
-## Overall FAIR asssessment
-
-Comparison across all repositories and across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
+First we filter for the nodes we want. I went with nodes that have had new content since 2024. Up for discussion obviously. We also filter out the replica node and CANWIN. CANWIN has some oddly structured schema.org json and fails all checks.
 
 ```{r}
 node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/refs/heads/main/data/node_status.csv") %>% 
-    filter(as.Date(cn.latest) > as.Date("2023-01-01"))
+  filter(as.Date(cn.latest) > as.Date("2025-01-01") | node_id == "urn:node:KNB") %>% 
+  select(node_id, cn.count, cn.latest) %>% 
+  filter(!(node_id %in% c("urn:node:mnUCSB1", "urn:node:CANWIN")))
 ```
 
+Download the data from the scorer.
+
 ```{r}
-# calculates mean FAIR scores for each node, on most recent versions only, across all time
-data <- get_agg_data()
-node_scores <- get_node_scores_all_time(data)
-data_recent <- data %>% filter(datasource %in% node_status$node_id)
+data <- get_agg_data() %>% filter(datasource %in% node_status$node_id)
 ```
+
+## Overall FAIR asssessment
+
+Calculate all time scores on only non-obsoleted datasets.
+
+```{r}
+node_scores <- data %>% 
+  filter(is.na(obsoletedBy)) %>% 
+  get_node_scores_all_time()
+```
+
+Jump through many hoops to get the flower plots.
 
 ```{r}
 repo_flowers <- node_scores %>%
-    split(.$repo) %>% 
-    purrr::imodify( ~make_flower_plot(as.data.frame(.x), title = .y))
+  mutate(repo = fct_reorder(repo, score_100, .fun = mean, .desc = TRUE)) %>%
+  split(.$repo) %>% 
+  purrr::imodify( ~ make_flower_plot(as.data.frame(.x), title = .y))
 
+# get scores across all dataone
 all_repos <- node_scores %>% 
-    group_by(label) %>% 
-    summarise(score = mean(score, na.rm = T)) %>% 
-    mutate(score_100 = score*100) %>% 
-    mutate(label = factor(label, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
-    arrange(label)
+  group_by(label) %>% 
+  summarise(score = mean(score, na.rm = T)) %>% 
+  mutate(score_100 = score*100) %>% 
+  mutate(label = factor(label, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
+  arrange(label)
 
 central_master_plot <- make_flower_plot(
-    all_repos, 
-    title = "DataONE Network") +
-    theme(
-        plot.title = element_text(size = 28, face = "bold"), # Much bigger font
-        text = element_text(size = 20) # Bigger mean text
-    )
+  all_repos, 
+  title = "DataONE Network") +
+  theme(
+    plot.title = element_text(size = 28, face = "bold"), # Much bigger font
+    text = element_text(size = 20) # Bigger mean text
+  )
+
+# optionally make lower scoring nodes anonymous  
+#for (i in 13:length(repo_flowers)){
+#  repo_flowers[[i]] <- repo_flowers[[i]] + ggtitle("")
+#}
 ```
 
 ```{r}
 p_base <- ggplot() + theme_void()
 
+step_x <- 1 / 7   # 7 columns
+step_y <- 1 / 6   # 6 rows
+
+
 dashboard <- p_base + patchwork::inset_element(
-    central_master_plot, 
-    left   = 0.250,   # Starts 25% from the left edge
-    bottom = 0.375,   # Starts 37.5% from the bottom edge
-    right  = 0.625,   # Ends 62.5% from the left edge
-    top    = 0.750,   # Ends 75% from the bottom edge
-    clip   = FALSE
+  central_master_plot, 
+  left   = 2 * step_x,  # Leaves 2 columns on the left
+  bottom = 2 * step_y,  # Leaves 2 rows on the bottom
+  right  = 5 * step_x,  # Leaves 2 columns on the right
+  top    = 4 * step_y,  # Leaves 2 rows on the top
+  clip   = FALSE
 )
 
-coords <- expand.grid(col = 1:8, row = 1:8)
-coords <- subset(coords, !(col %in% 3:5 & row %in% 4:6))
+coords <- expand.grid(col = 1:7, row = 1:6)
+coords <- subset(coords, !(col %in% 3:5 & row %in% 3:4))
 
-step <- 0.125  # 1/8 of the canvas
-coords$left   <- (coords$col - 1) * step
-coords$right  <- coords$col * step
-coords$bottom <- (coords$row - 1) * step
-coords$top    <- coords$row * step
+
+coords$left   <- (coords$col - 1) * step_x
+coords$right  <- coords$col * step_x
+coords$bottom <- (coords$row - 1) * step_y
+coords$top    <- coords$row * step_y
+
+# Sort the plotting order from top-left to bottom-right
 coords <- coords[order(-coords$row, coords$col), ]
-# loop through your 55 plots and drop them onto the canvas
+
+# loop through plots and drop them onto the canvas
 for (i in seq_along(rev(repo_flowers))) {
-    dashboard <- dashboard + patchwork::inset_element(
-        repo_flowers[[i]],
-        left   = coords$left[i], 
-        bottom = coords$bottom[i], 
-        right  = coords$right[i], 
-        top    = coords$top[i],
-        clip   = FALSE
-    )
+  dashboard <- dashboard + patchwork::inset_element(
+    repo_flowers[[i]],
+    left   = coords$left[i], 
+    bottom = coords$bottom[i], 
+    right  = coords$right[i], 
+    top    = coords$top[i],
+    clip   = FALSE
+  )
 }
 
 ggsave(
-    filename = "fair_dashboard_inset.png", 
-    plot = dashboard, 
-    width = 25, height = 25, dpi = 200, 
-    bg = "white"
+  filename = "fair_dashboard_inset.png", 
+  plot = dashboard, 
+  width = 25, height = 25, dpi = 200, 
+  bg = "white"
 )
 ```
 
+
 ### Arctic Story - pre/post acadis
+
+This is just a little side note explaining why the Arctic overall score is a little low at 52.
 
 ```{r}
 arctic <- data %>% 
-    filter(datasource == "urn:node:ARCTIC") %>% 
-    mutate(prepost = if_else(dateUploaded < as.Date("2016-04-30"), "pre", "post")) %>% 
-    group_by(prepost) %>% 
-    filter(is.na(obsoletedBy)) %>% 
-    summarise(Findable = mean(scoreFindable),
-              Accessible = mean(scoreAccessible),
-              Interoperable = mean(scoreInteroperable),
-              Reusable = mean(scoreReusable),
-              n = n()) %>% 
-    pivot_longer(cols = c("Findable", "Accessible", "Interoperable", "Reusable"), names_to = 'label', values_to = 'score') %>% 
-    mutate(score_100 = score*100)
+  filter(datasource == "urn:node:ARCTIC") %>% 
+  mutate(prepost = if_else(dateUploaded < as.Date("2016-04-30"), "pre", "post")) %>% 
+  group_by(prepost) %>% 
+  filter(is.na(obsoletedBy)) %>% 
+  summarise(Findable = mean(scoreFindable),
+            Accessible = mean(scoreAccessible),
+            Interoperable = mean(scoreInteroperable),
+            Reusable = mean(scoreReusable),
+            n = n()) %>% 
+  pivot_longer(cols = c("Findable", "Accessible", "Interoperable", "Reusable"), names_to = 'label', values_to = 'score') %>% 
+  mutate(score_100 = score*100)
 
 arctic_flowers <- arctic %>%
-    split(.$prepost) %>% 
-    purrr::imodify( ~make_flower_plot(as.data.frame(.x), title = .y))
+  split(.$prepost) %>% 
+  purrr::imodify( ~make_flower_plot(as.data.frame(.x), title = .y))
 
 wrap_plots(arctic_flowers)
-
-
 ```
 
 ### Timeseries
 
+Here we calculate rolling monthly means on all of the nodes. Then filter for nodes that have at least 10k metadata records and 5 years of data. These are plotted on top of the rest of the nodes, along with an overall rolling mean. I don't really love this plot, I think it brings up more questions than it answers and doesn't really have a clear point besides "there is lots of variability between nodes." I guess that is a point we'll want to make but I'm not sure if this is how we want to make it.
+
 ```{r}
 node_timelines <- data %>% 
-    group_by(datasource) %>% 
-    group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
-    ungroup() %>% 
-    mutate(repo = gsub("urn:node:", "", datasource)) 
+  group_by(datasource) %>% 
+  group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
+  ungroup() %>% 
+  mutate(repo = gsub("urn:node:", "", datasource)) 
 
 node_filtered <- node_timelines %>%
-    group_by(repo) %>% 
-    filter(sum(num_mean, na.rm = TRUE) >= 10000) %>% 
-    filter(n_distinct(ym) >= 60)
+  group_by(repo) %>% 
+  filter(sum(num_mean, na.rm = TRUE) >= 10000) %>% 
+  filter(n_distinct(ym) >= 60)
 
 node_nons <- node_timelines %>% 
-    filter(!(datasource %in% unique(node_filtered$datasource)))
+  filter(!(datasource %in% unique(node_filtered$datasource)))
 
 average_timeline <- get_scores_rolling_mean_ym(data)
 ```
 
 ```{r}
 node_list_string <- paste0(
-    "Target Nodes: ARCTIC, BCODMO, BOREALIS, DRYAD, DVNO, ESS_DIVE, HD, KNB, LTER, OBIS, PDC, PISCO"
+  "Target Nodes: ", paste(unique(node_filtered$repo), collapse = ", ")
 )
 
 ggplot() +
-    # all individual nodes mapped in the background (thin, muted grey lines)
-    geom_line(
-        data = node_nons, 
-        aes(x = ym, y = mean, group = repo, color = "Other Nodes"), 
-        #color = "gray", 
-        linewidth = 0.5,
-    ) +
-    
-    geom_line(
-        data = node_filtered, 
-        aes(x = ym, y = mean, group = repo, color = "Target Nodes"), 
-        #color = "aquamarine3", 
-        linewidth = 0.7,
-        alpha = 0.8
-    ) +
-    
-    # node average mapped on top 
-    geom_line(
-        data = average_timeline, 
-        aes(x = ym, y = mean, color = "DataONE Federation"), 
-        #color = "#ff3366", 
-        linewidth = 1,
-        alpha = 0.8
-    ) +
-    
-    facet_wrap(~metric, ncol = 2, scales = "fixed") +
-    
-    scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
-    scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
-    labs(
-        title = "",
-        x = "Upload Date",
-        y = "Score",
-        caption = node_list_string
-    ) +
-    
-    scale_color_manual(
-        name = "",
-        values = c(
-            "Other Nodes" = "grey85",
-            "Target Nodes" = "turquoise3",
-            "DataONE Federation"             = "#ff3366"
-        )
-    ) +
-    
-    theme_minimal(base_size = 13) +
-    theme(
-        plot.title = element_text(face = "bold", size = 16, margin = margin(b = 4)),
-        plot.subtitle = element_text(color = "grey40", size = 11, margin = margin(b = 15)),
-        strip.background = element_rect(fill = "grey95", color = NA),
-        strip.text = element_text(face = "bold", color = "grey20", margin = margin(t = 6, b = 6)),
-        panel.grid.minor = element_blank(),
-        panel.spacing = unit(1.5, "lines"),
-        axis.title.x = element_text(margin = margin(t = 10)),
-        axis.title.y = element_text(margin = margin(r = 10)),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
-        legend.position = "bottom",
-        plot.caption = element_text(
-            hjust = 0,             
-            color = "grey40",      
-            size = 9,              
-            margin = margin(t = 15) 
-        )
+  # all individual nodes mapped in the background (thin, muted grey lines)
+  geom_line(
+    data = node_nons, 
+    aes(x = ym, y = mean, group = repo, color = "Other Nodes"), 
+    color = "gray", 
+    linewidth = 0.5,
+  ) +
+  
+  geom_line(
+    data = node_filtered, 
+    aes(x = ym, y = mean, group = repo, color = "Target Nodes"), 
+    color = "aquamarine3", 
+    linewidth = 0.7,
+    alpha = 0.8
+  ) +
+  
+  # node average mapped on top 
+  geom_line(
+    data = average_timeline, 
+    aes(x = ym, y = mean, color = "DataONE Federation"), 
+    color = "#ff3366", 
+    linewidth = 1,
+    alpha = 0.8
+  ) +
+  
+  facet_wrap(~metric, ncol = 2, scales = "fixed") +
+  
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+  labs(
+    title = "",
+    x = "Upload Date",
+    y = "Score",
+    caption = node_list_string
+  ) +
+  
+  scale_color_manual(
+    name = "",
+    values = c(
+      "Other Nodes" = "grey85",
+      "Target Nodes" = "turquoise3",
+      "DataONE Federation"= "#ff3366"
     )
+  ) +
+  
+  theme_bw(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, margin = margin(b = 4)),
+    plot.subtitle = element_text(color = "grey40", size = 11, margin = margin(b = 15)),
+    strip.text = element_text(face = "bold", color = "grey20", margin = margin(t = 6, b = 6)),
+    panel.grid.minor = element_blank(),
+    panel.spacing = unit(1.5, "lines"),
+    legend.position = "bottom",
+    plot.caption = element_text(
+      hjust = 0,             
+      color = "grey40",      
+      size = 9,              
+      margin = margin(t = 15) 
+    )
+  )
 ```
 
-### New mean method
+### Rolling Mean using LOCF
 
+Here's a different method to calculate the rolling mean, this time with a "state of the repository" monthly mean based on a Last Observation Carried Forward (LOCF) approach. Using this method, in each month, the most recent version of each dataset is selected. The score of this dataset is then filled across months in which no new version of that dataset appeared. When a dataset version is the most recent version of the dataset (has not be obsoleted by any other version), that version's score is filled from the month it was uploaded to present day. This method ensure that every month's mean consists of the mean of datasets that were the most recent versions in that particular month.
+
+I do think this method is really interesting, and most accurately represents what is actually happening with the repositories. There are some interesting patterns here. Hydroshare used to have schema.org metadata that failed every check (format too mangled for our jq) but then fixed it. You can see bulk upload evidence in a few repos, including the ADC around our transition from ACADIS and in 2020, something major changed at LTER in 2015, and I think we'll see some interesting results from PANGAEA once we get more of their ISO records processed. 
+
+Even with the parallel processing this takes a long time to run so be warned. I clocked it at 15 minutes or so. Because of that I checked the plot in.
+
+![](all_nodes_timeline.png)
 
 ```{r}
-future::plan(multisession, workers = 5)
+source(here("R/calc_node_scores.R")) # annoyingly we have to source the function if we are using parallel beacuse the package isn't installing right now
+future::plan(multisession, workers = 36)
 
-results_by_node <- data_recent %>%
-    split(.$datasource) %>%
-    furrr::future_map_dfr(~ get_scores_monthly_state(.x), .id = "datasource")
-
-t <- results_by_node %>% 
-    filter(num_mean > 10)
+results_by_node <- data %>%
+  split(.$datasource) %>%
+  furrr::future_map_dfr(~ get_scores_monthly_state(.x), .id = "datasource")
+# filter out months with less than 20 datasets total
+locf_plot <- results_by_node %>% 
+  filter(num_mean > 20)
 
 ```
 
+Really big plot for exploration purposes.
+
 ```{r}
-ggplot(t, aes(x = ym, y = mean, color = metric)) +
-    geom_point() +
-    facet_wrap(~datasource, ncol = 3) +
-    theme_bw()
+ggplot(locf_plot, aes(x = ym, y = mean, color = metric)) +
+  geom_line() +
+  scale_color_manual(
+    values = c(
+        "f"      = "#c70a61", 
+        "a"    = "#ff582d", 
+        "i" = "#1a6379", 
+        "r"      = "#60c5e4"
+    )) +
+  facet_wrap(~datasource, ncol = 3, scales = "free_x") +
+  theme_bw()
 
 
-ggsave("all_nodes_timeline_pts.png", width = 6, height = 30, units = "in")
-    
+ggsave("all_nodes_timeline.png", width = 10, height = 30, units = "in")
+
 ```
 
 
 ## Curation Effects
 
+To look at curation effects we first have to assign a sequence id to all the dataset versions. This is fairly quick but still takes around 2 minutes to run.
+
 ```{r}
-data_clean <- assign_sequence_id(data)
-data_ver <- get_first_last_versions(data_clean)
+data_seq <- assign_sequence_id(data) 
+data_ver <- get_first_last_versions(data_seq)
 ```
 
 ```{r}
 data_ver <- data_ver %>% 
-    filter(version_position != "only_version")
+  filter(version_position != "only_version")
 ```
 
+For these timeseries, I think it probably makes most sense to use the actual rolling mean, since this is fundamentally a different analysis than the LOCF. For now, looking at all nodes might be interesting
+
 ```{r}
-target_nodes <- c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE", "urn:node:EDI", "urn:node:LTER", "urn:node:PISCO")
-
 version_timelines <- data_ver %>% 
-    filter(datasource %in% target_nodes) %>% 
-    group_by(datasource, version_position) %>% 
-    group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
-    ungroup()
-
-plot_data <- version_timelines %>%
-    filter(version_position %in% c("first", "last"))
+  group_by(datasource, version_position) %>% 
+  group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
+  ungroup()
 
 line_styles <- c(
-    "first" = "dashed",
-    "last"  = "solid"
+  "first" = "dotted",
+  "last"  = "solid"
 )
 
 fair_colors <- c(
-    "Findable"      = "#c70a61", 
-    "Accessible"    = "#ff582d", 
-    "Interoperable" = "#1a6379", 
-    "Reusable"      = "#60c5e4"
+  "Findable"      = "#c70a61", 
+  "Accessible"    = "#ff582d", 
+  "Interoperable" = "#1a6379", 
+  "Reusable"      = "#60c5e4"
 )
 
 p <- ggplot(
-    data = plot_data, 
-    aes(x = ym, y = mean, linetype = version_position, color = metric)
+  data = version_timelines, 
+  aes(x = ym, y = mean, linetype = version_position, color = metric)
 ) +
-    geom_line(linewidth = 1, alpha = 0.8) + 
-    facet_wrap(~datasource, ncol = 2, scales = "fixed") +
-    scale_linetype_manual(values = line_styles) +
-    scale_color_manual(values = fair_colors) +
-    theme_minimal() +
-    labs(
-        title = "",
-        linetype = "Version",
-        color = "FAIR Metric",
-        x = NULL,
-        y = "Score"
-    ) +
-    theme(
-        legend.position = "bottom",
-        legend.box = "vertical",
-        plot.title = element_text(hjust = 0.5, face = "bold"),
-        strip.text = element_text(face = "bold", size = 10)
-    )
+  geom_line(linewidth = 0.5, alpha = 0.8) + 
+  facet_wrap(~datasource, ncol = 2, scales = "free_x") +
+  scale_linetype_manual(values = line_styles) +
+  scale_color_manual(values = fair_colors) +
+  theme_bw() +
+  labs(
+    title = "",
+    linetype = "Version",
+    color = "FAIR Metric",
+    x = NULL,
+    y = "Score"
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    strip.text = element_text(face = "bold", size = 10)
+  )
 
-p
+ggsave("curation_effect_timelines.png", p, width = 10, height = 30, units = "in")
+```
+
+Looking more closely at a few key nodes...
+
+I'm still not super happy with this. The figure is better but I'm not sure what it says, if anything, across the network.
+
+```{r}
+target_nodes <- c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:ESS_DIVE", "urn:node:EDI")
+
+target_timelines <- version_timelines %>% 
+  filter(datasource %in% target_nodes) %>% 
+  mutate(
+    line_group = interaction(datasource, version_position)
+  )
+
+target_ribbon <- target_timelines %>%
+  select(-num_mean, -num_cum_mean) %>% 
+  pivot_wider(
+    id_cols = c(ym, datasource, metric), 
+    names_from = version_position,
+    values_from = mean
+  ) %>% 
+  group_by(datasource, metric) %>%
+  arrange(ym) %>%
+  fill(first, last, .direction = "down") %>% 
+  ungroup()
+
+ggplot(
+  data = target_timelines, 
+  aes(x = ym, y = mean)
+) +
+  geom_ribbon(
+    data = target_ribbon,
+    aes(x = ym, ymin = first, ymax = last, fill = datasource, group = datasource),
+    inherit.aes = FALSE, 
+    alpha = 0.25
+  ) +
+  
+  geom_line(
+    aes(color = datasource, linetype = version_position, group = line_group), 
+    linewidth = 0.2, 
+    alpha = 1
+  ) +
+  facet_wrap(~metric, ncol = 2, scales = "free_x") +
+  scale_linetype_manual(values = line_styles) +
+  scale_color_viridis_d(option = "mako", begin = 0.2, end = 0.7) +
+  scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.7) + 
+  
+  theme_bw() +
+  labs(
+    title = "FAIR Metric Evolution Over Time Across Repositories",
+    linetype = "Version",
+    x = NULL,
+    y = "Score"
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    strip.text = element_text(face = "bold", size = 10),
+    panel.grid.minor = element_blank()
+  ) +
+  guides(color = "none", fill = "none")
 ```
 
 ```{r}
 ggsave("fair_first_last_versions.png", p, width = 10, height = 8, units = "in")
 ```
 
+Here's the curation effect averaged over time.
 
 ```{r}
 data_change_avg <- data_ver %>% 
-    group_by(datasource, version_position) %>% 
-    summarise( n= n(),
-               Findable = mean(scoreFindable),
-               Accessible = mean(scoreAccessible),
-               Interoperable = mean(scoreInteroperable),
-               Reusable = mean(scoreReusable), .groups = "drop") %>% 
-    filter(n > 100) %>% 
-    filter(!grepl("CANWIN", datasource)) %>% 
-    pivot_longer(cols = c(Findable, Accessible, Interoperable, Reusable), names_to = "metric", values_to = "mean") %>% 
-    mutate(datasource = gsub("urn:node:", "", datasource)) %>% 
-    mutate(mean = mean*100)
+  group_by(datasource, version_position) %>% 
+  summarise( n= n(),
+             Findable = mean(scoreFindable),
+             Accessible = mean(scoreAccessible),
+             Interoperable = mean(scoreInteroperable),
+             Reusable = mean(scoreReusable), .groups = "drop") %>% 
+  pivot_longer(cols = c(Findable, Accessible, Interoperable, Reusable), names_to = "metric", values_to = "mean") %>% 
+  mutate(datasource = gsub("urn:node:", "", datasource)) %>% 
+  mutate(mean = mean*100)
 
 trajectory_data <- data_change_avg %>%
-    select(datasource, metric, version_position, mean) %>%
-    pivot_wider(names_from = version_position, values_from = mean) %>%
-    mutate(
-        score_change = case_when(
-            last > first ~ "Increased",
-            last < first ~ "Decreased",
-            TRUE         ~ "No Change"
-        )
-    ) %>%
-    select(datasource, metric, score_change)
+  select(datasource, metric, version_position, mean) %>%
+  pivot_wider(names_from = version_position, values_from = mean) %>%
+  mutate(
+    score_change = case_when(
+      last > first ~ "Increased",
+      last < first ~ "Decreased",
+      TRUE         ~ "No Change"
+    )
+  ) %>%
+  select(datasource, metric, score_change)
 
 data_enhanced <- data_change_avg %>%
-    left_join(trajectory_data, by = c("datasource", "metric")) %>%
-    mutate(datasource = forcats::fct_reorder(datasource, mean))
+  left_join(trajectory_data, by = c("datasource", "metric")) %>%
+  mutate(datasource = forcats::fct_reorder(datasource, mean))
 
 ```
 
 ```{r}
 ggplot(data_enhanced, aes(x = mean, y = datasource)) +
-    geom_line(aes(group = datasource, color = score_change), linewidth = 1.2) +
-    geom_point(aes(shape = version_position), size = 3, color = "black") +
-    facet_wrap(~ metric, scales = "free_x") +
-    scale_color_manual(
-        values = c(
-            "Increased" = "#009E73", 
-            "Decreased" = "#D55E00", 
-            "No Change" = "gray70"
-        ), 
-    ) +
-    scale_shape_manual(
-        values = c(
-            "first" = 1,  
-            "last"  = 16  
-        )
-    ) +
-    theme_bw() +
-    labs(
-        title = "FAIR Score Changes: Initial vs. Final Versions",
-        x = "Mean Score",
-        y = NULL,
-        color = "Score Trajectory",
-        shape = "Version State"
-    ) +
-    theme(
-        legend.position = "bottom",
-        legend.box = "vertical",
-        panel.grid.minor = element_blank()
-    ) +
-    guides(color = "none")
+  geom_line(aes(group = datasource, color = score_change), linewidth = 1.2) +
+  geom_point(aes(shape = version_position), size = 3, color = "black") +
+  facet_wrap(~ metric, scales = "free_x") +
+  scale_color_manual(
+    values = c(
+      "Increased" = "#009E73", 
+      "Decreased" = "#D55E00", 
+      "No Change" = "gray70"
+    ), 
+  ) +
+  scale_shape_manual(
+    values = c(
+      "first" = 1,  
+      "last"  = 16  
+    )
+  ) +
+  theme_bw() +
+  labs(
+    title = "FAIR Score Changes: Initial vs. Final Versions",
+    x = "Mean Score",
+    y = NULL,
+    color = "Score Trajectory",
+    shape = "Version State"
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical",
+    panel.grid.minor = element_blank()
+  ) +
+  guides(color = "none")
 ```
 
 ```{r}
-ggsave("FAIR-inital-final-mean.png", width = 6, height = 8, units = "in")
+ggsave("FAIR-inital-final-mean.png", width = 10, height = 10, units = "in")
 ```
 
 
-## F and A vs I and R
+## What is the bigger driver, dialect, time, or version?
+
+Just a quick pass at an ANOVA to see if we can model score. Normalized score within node to try and remove overall node effects. 
 
 ```{r}
-df <- data %>% 
-    filter(is.na(obsoletedBy)) %>% 
-    filter(dateUploaded > as.Date("2015-01-01")) %>% 
-    mutate(dialect = case_when(
-        grepl("ecoinformatics", formatId) ~ "EML",
-        grepl("isotc211", formatId) ~ "ISO",
-        grepl("schema", formatId) ~ "SOSO"
-    )) %>% 
-    split(.$dialect) %>% 
-    purrr::map_dfr(~ get_scores_mean_ym(.x), .id = "dialect")
-    
-```
+df <- data_seq %>% 
+  mutate(dialect = case_when(
+    grepl("ecoinformatics", formatId) ~ "EML",
+    grepl("isotc211", formatId) ~ "ISO",
+    grepl("schema", formatId) ~ "SOSO"
+  )) %>% 
+  mutate(version_position = case_when(
+    sequenceId == pid & is.na(obsoletedBy) ~ "singleton",
+    sequenceId == pid & !is.na(obsoletedBy) ~ "first",    
+    sequenceId != pid & is.na(obsoletedBy) ~ "last",      
+    sequenceId != pid & !is.na(obsoletedBy) ~ "middle"   
+  )) %>%
+  pivot_longer(cols = starts_with("score"), names_to = "metric", values_to = "score") %>% 
+  mutate(score_100 = score*100) %>% 
+  mutate(metric = gsub("score", "",  metric)) %>% 
+  filter(metric != "Overall")
 
+```
 
 ```{r}
 get_variance <- function(target_metric, data) {
   
   df_subset <- data %>% 
     filter(metric == target_metric) %>% 
-    mutate(time_numeric = as.numeric(as.factor(ym)))
+    mutate(time_numeric = decimal_date(as.Date(dateUploaded))) %>%
+    group_by(datasource) %>% 
+    # normalize score within node
+    mutate(
+      score_normalized = score_100 - mean(score_100, na.rm = TRUE)
+    ) %>% 
+    ungroup()
   
-  fit <- lm(score_100 ~ time_numeric + dialect, data = df_subset)
+  fit <- lm(score_normalized ~ time_numeric + dialect + version_position, data = df_subset)
   anova_results <- anova(fit)
   
   ss_total <- sum(anova_results$`Sum Sq`)
@@ -422,37 +534,30 @@ get_variance <- function(target_metric, data) {
     Percent_Explained = (anova_results$`Sum Sq` / ss_total) * 100
   )
 }
-metrics_to_run <- c("f", "a", "i", "r")
+metrics_to_run <- c("Findable", "Accessible", "Interoperable", "Reusable")
 
 all_variance_explained <- map_dfr(metrics_to_run, ~get_variance(.x, df))
+
+gt::gt(all_variance_explained %>% arrange(Driver, FAIR_Metric))
 ```
-
-
-```{r}
-df %>% 
-    filter(metric %in% c("f", "a", "i", "r")) %>% 
-ggplot(aes(x = ym, y = score_100, color = metric)) +
-    geom_point() +
-    geom_smooth() +
-    facet_wrap(~dialect)
-```
-
 
 ## Repo classification with clustering
 
+A brief attempt to try to cluster repos into different types according to number of recrods and number of versions per dataset that didn't go very far.
+
 ```{r}
 repo_summary <- data %>% 
-    group_by(datasource) %>% 
-    summarise(unique_datasets = n_distinct(sequenceId),
-              mean_versions_per_dataset = n() / n_distinct(sequenceId),
-              .groups = "drop")
+  group_by(datasource) %>% 
+  summarise(unique_datasets = n_distinct(sequenceId),
+            mean_versions_per_dataset = n() / n_distinct(sequenceId),
+            .groups = "drop")
 ```
 
 ```{r}
 cluster_data <- repo_summary %>%
-    filter(unique_datasets > 100) %>% 
-    mutate(log_datasets = log10(unique_datasets)) %>% 
-    mutate(log_versions = log10(mean_versions_per_dataset))
+  filter(unique_datasets > 100) %>% 
+  mutate(log_datasets = log10(unique_datasets)) %>% 
+  mutate(log_versions = log10(mean_versions_per_dataset))
 
 repo_scaled <- scale(cluster_data %>% select(log_datasets, log_versions))
 
@@ -475,200 +580,6 @@ fit_kmeans <- kmeans(repo_scaled, centers = 3, nstart = 25)
 # Add the cluster assignments back to our data
 final_clusters <- cluster_data %>%
   mutate(cluster = as.factor(fit_kmeans$cluster))
-```
-
-
-
-
-## Older
-
-
-```{r count_standards}
-standards <- data.frame(table(most_recent$dialect)) %>%
-    rename(dialect=Var1, n=Freq)
-```
-
-
-```{r, warning=FALSE}
-plot_obj <- fair_flower(score_cumulative_alone, title = "DataONE Overall", filename="dataone-fair-flower.png")
-```
-
-```{r plot_cumulative_overall}
-d1_colors <- c("#ff582d", "#c70a61", "#1a6379", "#60c5e4", "#ff582d", "#c70a61", "#1a6379", "#60c5e4")
-p <- ggplot(data=score_cumulative_alone, mapping=aes(x=ym, y=mean, color=metric)) +
-    geom_line() +
-    geom_point(size=1) +
-    theme_bw() +
-    theme(panel.border = element_blank(),
-          axis.line = element_line(colour = "black"),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank()) +
-    scale_colour_manual(values=d1_colors) +
-    scale_x_date(date_breaks="year", date_minor_breaks="months", labels=date_format("%Y")) +
-    xlab("Year") +
-    scale_y_continuous(limits=c(0,100)) +
-    ylab("Average FAIR Score") +
-    ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " metadata records"))
-ggsave("dataone-fair-scores-overall.png", width = 8, height = 4)
-p
-```
-
-While the cumulative averages are quite smooth, especially as the collections grow in size, the monthly variability is still quite high.  This graph shows the average FAIR scores for data sets updated in each month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
-
-```{r plot_monthly_overall}
-p <- ggplot(data=score_monthly, mapping=aes(x=ym, y=mean, color=metric)) +
-    geom_line() +
-    geom_point(size=1) +
-    theme_bw() +
-    theme(panel.border = element_blank(),
-          axis.line = element_line(colour = "black"),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank()) +
-    scale_colour_manual(values=d1_colors) +
-    scale_x_date(date_breaks="year", date_minor_breaks="months", labels=date_format("%Y")) +
-    xlab("Year") +
-    scale_y_continuous(limits=c(0,100)) +
-    ylab("Average FAIR Score") +
-    ggtitle(paste0("DataONE: FAIR scores for ", format(sum(standards$n), big.mark=","), " metadata records"))
-ggsave("dataone-fair-scores-overall-monthly.png", width = 8, height = 4)
-p
-```
-
-## Assessment of EML and ISO metadata corpora
-
-Combined across all repositories, but split across metadata dialects. FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
-
-```{r calc_cumulative_by_dialect}
-score_dialect <- most_recent %>%
-    group_by(dialect, ym) %>%
-    summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR), .groups = "drop") %>%
-    mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
-    select(dialect, ym, f, a, i, r, fc, ac, ic, rc) %>%
-    gather(metric, mean, -dialect, -ym)
-score_dialect$metric <- factor(score_dialect$metric,
-                               levels=c("f", "a", "i", "r", "fc", "ac", "ic", "rc"),
-                               labels=c("Findable", "Accessible", "Interoperable", "Reusable",
-                                        "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
-
-```
-
-
-```{r flower_cumulative_by_dialect, fig.width=8}
-cum_dialect <- score_dialect %>% 
-    filter(metric %in% c("Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
-
-plots <- cum_dialect %>%
-    split(.$dialect) #%>% 
-#purrr::imodify( ~fair_flower(df = .x, title = .y, filename = paste0("figures/dataone-fair-flower-", .y, ".png") ))
-p_eml <- fair_flower(df = plots[[1]], title = "EML")
-p_iso <- fair_flower(df = plots[[2]], title = "ISO")
-p_soso <- fair_flower(df = plots[[2]], title = "SOSO")
-```
-
-```{r plot_cumulative_by_dialect}
-
-p <- ggplot(data=cum_dialect, mapping=aes(x=ym, y=mean, color=metric)) +
-    geom_line() +
-    geom_point(size=1) +
-    facet_grid(. ~ dialect) +
-    theme_bw() +
-    theme(panel.border = element_blank(),
-          axis.line = element_line(colour = "black"),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank()) +
-    scale_colour_manual(values=d1_colors) +
-    scale_x_date(date_breaks="2 years", date_minor_breaks="months", labels=date_format("%Y")) +
-    xlab("Year") +
-    scale_y_continuous(limits=c(0,100)) +
-    ylab("Average FAIR Score") +
-    ggtitle(paste0("DataONE: FAIR scores for ", format(standards$n[standards$dialect == "EML"], big.mark=","), " EML and ", format(standards$n[standards$dialect == "ISO"], big.mark=","), " ISO metadata records"))
-ggsave("dataone-fair-scores-dialect-horiz.png", width = 8, height = 4)
-p
-```
-
-
-## Assessment of repository collections
-
-Split results across selected DataONE repositories.  FAIR scores show the cumulative average scores for data set versions uploaded up to and including that month for EML and ISO metadata families within the DataONE Network. Only the most recent version of a data set is included for each month.
-
-```{r calc_cumulative_by_repo}
-score_repo <- most_recent %>%
-    group_by(datasource, ym) %>%
-    summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR), .groups = "drop") %>%
-    mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
-    select(datasource, ym, f, a, i, r, fc, ac, ic, rc) %>%
-    gather(metric, mean, -datasource, -ym)
-score_repo$metric <- factor(score_repo$metric,
-                            levels=c("f", "a", "i", "r", "fc", "ac", "ic", "rc"),
-                            labels=c("Findable", "Accessible", "Interoperable", "Reusable",
-                                     "Cum. Findable", "Cum. Accessible", "Cum. Interoperable", "Cum. Reusable"))
-
-```
-
-
-
-
-
-```{r plot_cumulative_by_repo}
-
-p <- ggplot(data=cum_repo, mapping=aes(x=ym, y=mean, color=metric)) +
-    geom_line() +
-    geom_point(size=1) +
-    facet_wrap( ~ datasource, ncol=4) +
-    theme_bw() +
-    theme(panel.border = element_blank(),
-          axis.line = element_line(colour = "black"),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank()) +
-    scale_colour_manual(values=d1_colors) +
-    scale_x_date(date_breaks="5 years", date_minor_breaks="months", labels=date_format("%Y")) +
-    xlab("Year") +
-    scale_y_continuous(limits=c(0,100)) +
-    ylab("Average FAIR Score") +
-    ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
-ggsave("dataone-fair-scores-repos.png", width = 8, height = 4)
-p
-```
-
-Zooming in for a couple of selected repositories shows the temporal trends.
-
-```{r plot_monthly_by_repo_select, fig.height=5, fig.width=7}
-
-repo_monthly <- score_repo %>% 
-    filter(metric %in% c("Findable", "Accessible", "Interoperable", "Reusable")) %>% 
-    filter(!datasource %in% (c("urn:node:mnTestNKN", "urn:node:ONEShare_test"))) %>% 
-    mutate(repo = stringr::str_remove(datasource, pattern="urn:node:"))
-
-repo_monthly_selected <- repo_monthly %>% 
-    filter(datasource %in% (c("urn:node:ARCTIC", "urn:node:KNB", "urn:node:NCEI", "urn:node:PANGAEA", "urn:node:ESS_DIVE", "urn:node:LTER")))
-
-fair_version <- "0.4.0"
-
-FAIR_annotation <- grobTree(textGrob(paste0("FAIR Suite ", fair_version), 
-                                     x=0.05,  y=0.95, hjust=0, 
-                                     gp=gpar(col="darkgrey", fontsize=13, fontface="italic")))
-
-d1_theme <- theme_bw() +
-    theme(panel.border = element_blank(),
-          axis.line = element_line(colour = "black"),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(),
-          legend.position = "bottom")
-
-p <- ggplot(data=repo_monthly_selected, mapping=aes(x=ym, y=mean, color=metric)) +
-    geom_line() +
-    geom_point(size=1) +
-    facet_wrap( ~ repo, ncol=3) +
-    annotation_custom(FAIR_annotation) +
-    d1_theme +
-    scale_colour_manual(values=d1_colors) +
-    scale_x_date(date_breaks="5 years", date_minor_breaks="months", labels=date_format("%Y")) +
-    xlab("Year") +
-    scale_y_continuous(limits=c(0,100)) +
-    ylab("Average FAIR Score (%)") +
-    ggtitle(paste0("DataONE: FAIR scores for selected repositories"))
-ggsave("figures/dataone-fair-scores-repos-monthly-zoom.png", width = 8, height = 8)
-p
 ```
 
 

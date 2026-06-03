@@ -2,9 +2,9 @@
 #'
 #' Resolves the root sequence identifier for a dataset of object version chains.
 #' Instead of traversing chains row-by-row with recursion or element-wise mapping, 
-#' this function uses a highly optimized, vectorized hash-map approach. It maps 
-#' all rows up their respective `obsoletes` chains simultaneously via named vector 
-#' subsetting. This function is necessary because sometimes sequenceId is not populated
+#' this function uses a vectorized hash-map approach. It maps all rows up their 
+#' respective `obsoletes` chains simultaneously via named vector subsetting. 
+#' This function is necessary because sometimes sequenceId is not populated
 #' correctly in the runs table. This seems largely due to the true root of the sequence not
 #' being present in the table.
 #'
