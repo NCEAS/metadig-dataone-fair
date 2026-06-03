@@ -20,22 +20,22 @@ devtools::load_all()
 Load in the check data.
 
 ```{r}
-if (file.exists("/Users/jclark/metadig-data/runs_sequence.csv")){
-  data_clean <- read.csv("/home/jclark/metadig-data/runs_sequence.csv")
-} else {
-  run_results <- open_dataset("/home/jclark/metadig-data/run-data-0.5.0") %>% 
-    collect() %>% 
-    rename(pid = obj_id, obsoletedBy = obsoleted_by)
-  data_clean <- assign_sequence_id(run_results) %>%  # takes about 5 minutes
-    rename(dateUploaded = date_uploaded)
-}
+
+run_results <- open_dataset("/home/jclark/metadig-data/run-data-0.5.0") %>% 
+  collect() %>% 
+  rename(pid = obj_id, obsoletedBy = obsoleted_by) %>% 
+  filter(run_status != "ERROR")
+
+data_clean <- assign_sequence_id(run_results) %>%  # takes about 5 minutes
+  rename(dateUploaded = date_uploaded)
+
 
 runs <- data_clean %>% 
-    mutate(dialect = case_when(
-        grepl("ecoinformatics", format_id) ~ "EML",
-        grepl("isotc211", format_id) ~ "ISO",
-        grepl("schema", format_id) ~ "SOSO"
-    ))
+  mutate(dialect = case_when(
+    grepl("ecoinformatics", format_id) ~ "EML",
+    grepl("isotc211", format_id) ~ "ISO",
+    grepl("schema", format_id) ~ "SOSO"
+  ))
 
 runs_ver <- get_first_last_versions(runs)
 
@@ -48,18 +48,18 @@ A preliminary look at check results by dialect. Note: ISO representation is not 
 
 ```{r summary}
 checks_calc <- check_results %>% 
-    inner_join(runs) %>% 
-    mutate(
-        check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status),
-    ) %>%
-    filter(check_status != "ERROR") %>% 
-    group_by(check_name, dialect, check_type, check_level) %>%
-    summarise(
-        total_runs = n(),
-        mean_score = mean(check_status == "SUCCESS", na.rm = TRUE) * 100,
-        .groups = "drop"
-    ) %>%
-    collect()
+  inner_join(runs) %>% 
+  mutate(
+    check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status),
+  ) %>%
+  filter(check_status != "ERROR") %>% 
+  group_by(check_name, dialect, check_type, check_level) %>%
+  summarise(
+    total_runs = n(),
+    mean_score = mean(check_status == "SUCCESS", na.rm = TRUE) * 100,
+    .groups = "drop"
+  ) %>%
+  collect()
 
 
 plot_ready <- checks_calc %>%
@@ -70,21 +70,21 @@ ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
   facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
   tidytext::scale_y_reordered() +
   scale_color_manual(
-      values = c(
-          "EML" = "#26547c", 
-          "ISO" = "#ef476f", 
-          "SOSO" = "#ffd166"
-      )
+    values = c(
+      "EML" = "#26547c", 
+      "ISO" = "#ef476f", 
+      "SOSO" = "#ffd166"
+    )
   ) +
   theme_bw() +
   theme(
-      legend.position = "bottom",
-      legend.box = "horizontal",
-      panel.grid.minor = element_blank(),
-      strip.background = element_rect(fill = "gray95"),
-      strip.text = element_text(face = "bold", size = 11)
+    legend.position = "bottom",
+    legend.box = "horizontal",
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "gray95"),
+    strip.text = element_text(face = "bold", size = 11)
   ) +
-    labs(x = "", y = "")
+  labs(x = "", y = "")
 ```
 
 ## Checks that error
@@ -109,11 +109,11 @@ ggplot(errors, aes(x = pct_error, y = check_id_sorted)) +
   facet_wrap(~ check_level, scales = "free_y", ncol = 2) +
   scale_y_reordered() +
   scale_color_manual(
-      values = c(
-          "EML" = "#26547c", 
-          "ISO" = "#ef476f", 
-          "SOSO" = "#ffd166"
-      )
+    values = c(
+      "EML" = "#26547c", 
+      "ISO" = "#ef476f", 
+      "SOSO" = "#ffd166"
+    )
   ) +
   theme_bw() +
   theme(legend.position = "bottom")
@@ -155,49 +155,49 @@ Remake of Chris Beltz's dumbell plot showing change in check scores from initial
 
 ```{r}
 checks_ver <- check_results %>% 
-    inner_join(runs_ver) %>% 
-    #filter(origin_mn == "urn:node:ARCTIC") %>% 
-    mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>%
-    filter(check_status != "ERROR") %>% 
-    group_by(check_name, check_type, check_level) %>%
-    summarise(
-        total_runs = n(),
-        score_first = mean(if_else(version_position == "first", 
-                                   if_else(check_status == "SUCCESS", 100, 0), 
-                                   NA_real_), na.rm = TRUE),
-        score_last  = mean(if_else(version_position == "last",  
-                                   if_else(check_status == "SUCCESS", 100, 0), 
-                                   NA_real_), na.rm = TRUE),
-        
-        .groups = "drop"
-    ) %>%
-    mutate(
-        pct_point_change = score_last - score_first,
-        relative_pct_change = if_else(score_first == 0, NA_real_, ((score_last - score_first) / score_first) * 100)
-    ) %>%
-    collect()
+  inner_join(runs_ver) %>% 
+  #filter(origin_mn == "urn:node:ARCTIC") %>% 
+  mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>%
+  filter(check_status != "ERROR") %>% 
+  group_by(check_name, check_type, check_level) %>%
+  summarise(
+    total_runs = n(),
+    score_first = mean(if_else(version_position == "first", 
+                               if_else(check_status == "SUCCESS", 100, 0), 
+                               NA_real_), na.rm = TRUE),
+    score_last  = mean(if_else(version_position == "last",  
+                               if_else(check_status == "SUCCESS", 100, 0), 
+                               NA_real_), na.rm = TRUE),
+    
+    .groups = "drop"
+  ) %>%
+  mutate(
+    pct_point_change = score_last - score_first,
+    relative_pct_change = if_else(score_first == 0, NA_real_, ((score_last - score_first) / score_first) * 100)
+  ) %>%
+  collect()
 
 checks_ver_plot <- checks_ver %>% 
-    mutate(check_name_sorted = reorder_within(check_name, score_last, check_type)) %>%
-    pivot_longer(cols = c(score_first, score_last), names_to = "version", values_to = "score") %>%
-    mutate(version = if_else(version == "score_first", "First Version", "Last Version"))
+  mutate(check_name_sorted = reorder_within(check_name, score_last, check_type)) %>%
+  pivot_longer(cols = c(score_first, score_last), names_to = "version", values_to = "score") %>%
+  mutate(version = if_else(version == "score_first", "First Version", "Last Version"))
 ```
 
 ```{r}
 ggplot(checks_ver_plot, aes(x = score, y = check_name_sorted)) +
-    geom_line(aes(group = check_name_sorted), color = "gray70", linewidth = 1) +
-    geom_point(aes(color = version), size = 3.5, alpha = 0.9) +
-    facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
-    scale_y_reordered() +
-    scale_color_manual(
-        values = c(
-            "First Version" = "#E69F00", 
-            "Last Version"  = "#0072B2"
-        )
-    ) +
-
-    theme_bw() +
-    theme(legend.position = "bottom") +
-    labs(x = "", y = "")
+  geom_line(aes(group = check_name_sorted), color = "gray70", linewidth = 1) +
+  geom_point(aes(color = version), size = 3.5, alpha = 0.9) +
+  facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
+  scale_y_reordered() +
+  scale_color_manual(
+    values = c(
+      "First Version" = "#E69F00", 
+      "Last Version"  = "#0072B2"
+    )
+  ) +
+  
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(x = "", y = "")
 ```
 
