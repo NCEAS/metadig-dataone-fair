@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width = 10, fig.height = 10)
 ```
 
 ```{r load_libraries, echo=FALSE, message=FALSE, warning=FALSE}
