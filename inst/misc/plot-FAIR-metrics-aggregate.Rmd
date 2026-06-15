@@ -18,6 +18,9 @@ library(grid)
 library(here)
 library(patchwork)
 library(gt)
+library(lubridate)
+library(mgcv)
+library(gratia)
 devtools::load_all(here())
 ```
 
@@ -254,7 +257,7 @@ Even with the parallel processing this takes a long time to run so be warned. I 
 
 ![](all_nodes_timeline.png)
 
-```{r}
+```{r, eval = F}
 source(here("R/calc_node_scores.R")) # annoyingly we have to source the function if we are using parallel beacuse the package isn't installing right now
 future::plan(multisession, workers = 36)
 
@@ -269,21 +272,208 @@ locf_plot <- results_by_node %>%
 
 Really big plot for exploration purposes.
 
-```{r}
+```{r, eval = FALSE}
 ggplot(locf_plot, aes(x = ym, y = mean, color = metric)) +
   geom_line() +
   scale_color_manual(
     values = c(
-        "f"      = "#c70a61", 
-        "a"    = "#ff582d", 
-        "i" = "#1a6379", 
-        "r"      = "#60c5e4"
+      "f"      = "#c70a61", 
+      "a"    = "#ff582d", 
+      "i" = "#1a6379", 
+      "r"      = "#60c5e4"
     )) +
   facet_wrap(~datasource, ncol = 3, scales = "free_x") +
   theme_bw()
 
 
 ggsave("all_nodes_timeline.png", width = 10, height = 30, units = "in")
+
+```
+
+### GAMM
+
+```{r}
+data_gamm_prep <- data %>%
+  mutate(datasource = gsub("urn:node:", "", datasource)) %>%
+  filter(is.na(obsoletedBy)) %>% 
+  mutate(dialect = case_when(
+    grepl("ecoinformatics", formatId) ~ "EML",
+    grepl("isotc211", formatId) ~ "ISO",
+    grepl("schema", formatId) ~ "SOSO"
+  )) 
+
+
+yearly_representation <- data_gamm_prep %>%
+  mutate(upload_year = year(dateUploaded)) %>%
+  group_by(upload_year, dialect) %>%
+  summarize(total_datasets = n(), .groups = "drop") %>%
+  # Set minimum threshold for a "fair" representation (e.g., 20 datasets)
+  filter(total_datasets >= 20) %>%
+  group_by(dialect) %>%
+  summarize(first_stable_year = min(upload_year))
+
+data_gamm_prep <- data_gamm_prep %>% 
+  filter(year(dateUploaded) > 2014) %>% 
+  #filter(dialect == "EML") %>% 
+  mutate(
+    datasource = as.factor(datasource),
+    dialect   = as.factor(dialect)
+  ) %>% 
+  mutate(
+    date_parsed = as_datetime(dateUploaded),
+    upload_year_dec = decimal_date(date_parsed),
+  ) 
+```
+
+
+```{r}
+gam_F <- bam(scoreFindable ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"),,
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+gam_A <- bam(scoreAccessible ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"),,
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+gam_I <- bam(scoreInteroperable ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"), ,
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+gam_R <- bam(scoreReusable ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"), ,
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+
+est_F <- smooth_estimates(gam_F) %>% mutate(Metric = "Findable")
+est_A <- smooth_estimates(gam_A) %>% mutate(Metric = "Accessible")
+est_I <- smooth_estimates(gam_I) %>% mutate(Metric = "Interoperable")
+est_R <- smooth_estimates(gam_R) %>% mutate(Metric = "Reusable")
+
+all_fair_curves <- bind_rows(est_F, est_A, est_I, est_R) %>%
+  filter(grepl("upload_year_dec", .smooth)) %>%
+  mutate(Metric = factor(Metric, levels = c("Findable", "Accessible", "Interoperable", "Reusable")),
+         .lower_ci = .estimate - (1.96 * .se),
+         .upper_ci = .estimate + (1.96 * .se))
+
+ggplot(all_fair_curves, aes(x = upload_year_dec, y = .estimate, color = dialect, fill = dialect)) +
+  geom_ribbon(aes(ymin = .lower_ci, ymax = .upper_ci), alpha = 0.15, color = NA) +
+  geom_line(linewidth = 1.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5, alpha = 0.6) +
+  geom_rug(
+    data = data_gamm_prep, 
+    aes(x = upload_year_dec, color = dialect), 
+    inherit.aes = FALSE, 
+    sides = "b", 
+    alpha = 0.05, # Highly transparent since you have so many datasets!
+    length = unit(0.04, "npc") # Makes the ticks slightly shorter so they don't crowd the lines
+  ) +
+  facet_wrap(~ Metric, scales = "free_y", ncol = 2) +
+  #scale_color_manual(values = c("Findable" = "#c70a61", "Accessible" = "#ff582d", "Interoperable" = "#1a6379", "Reusable" = "#60c5e4")) +
+  #scale_fill_manual(values = c("Findable" = "#c70a61", "Accessible" = "#ff582d", "Interoperable" = "#1a6379", "Reusable" = "#60c5e4")) +
+  scale_color_manual(
+    values = c(
+      "EML" = "#26547c", 
+      "ISO" = "#ef476f", 
+      "SOSO" = "#ffd166"
+    )
+  ) +
+  scale_fill_manual(
+    values = c(
+      "EML" = "#26547c", 
+      "ISO" = "#ef476f", 
+      "SOSO" = "#ffd166"
+    )
+  ) +
+  theme_bw(base_size = 14) +
+  theme(
+    strip.background = element_rect(fill = "#2C3E50"), # Dark header boxes for the F, A, I, R titles
+    strip.text = element_text(color = "white", face = "bold", size = 12),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  labs(
+    title = "Evolution of FAIR Scores by Metadata Dialect (2010 - Present)",
+    x = "Upload Year",
+    y = "Effect on Score (%)",
+    color = "Metadata Dialect",
+    fill = "Metadata Dialect"
+  )
+```
+
+```{r}
+draw(gam_F) +
+  plot_layout(ncol = 4)
+
+ggsave("gamm_results.png", width = 20, height = 10, units = "in")
+```
+
+
+
+```{r}
+gam_F <- bam(scoreFindable ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+gam_A <- bam(scoreAccessible ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+gam_I <- bam(scoreInteroperable ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+gam_R <- bam(scoreReusable ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
+             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+gam_overall <- bam(scoreOverall ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
+                   discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
+
+est_F <- smooth_estimates(gam_F) %>% mutate(Metric = "Findable")
+est_A <- smooth_estimates(gam_A) %>% mutate(Metric = "Accessible")
+est_I <- smooth_estimates(gam_I) %>% mutate(Metric = "Interoperable")
+est_R <- smooth_estimates(gam_R) %>% mutate(Metric = "Reusable")
+
+all_fair_curves <- bind_rows(est_F, est_A, est_I, est_R) %>%
+  filter(grepl("upload_year_dec", .smooth)) %>%
+  mutate(Metric = factor(Metric, levels = c("Findable", "Accessible", "Interoperable", "Reusable")),
+         .lower_ci = .estimate - (1.96 * .se),
+         .upper_ci = .estimate + (1.96 * .se))
+```
+
+
+
+```{r}
+ggplot(all_fair_curves, aes(x = upload_year_dec, y = .estimate, color = dialect, fill = dialect)) +
+  
+  geom_ribbon(aes(ymin = .lower_ci, ymax = .upper_ci), alpha = 0.15, color = NA) +
+  geom_line(linewidth = 1.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5, alpha = 0.6) +
+  geom_rug(
+    data = data_gamm_prep, 
+    aes(x = upload_year_dec, color = dialect), 
+    inherit.aes = FALSE, 
+    sides = "b", 
+    alpha = 0.05, # Highly transparent since you have so many datasets!
+    length = unit(0.04, "npc") # Makes the ticks slightly shorter so they don't crowd the lines
+  ) +
+  facet_wrap(~ Metric, scales = "free_y", ncol = 2) +
+  scale_color_manual(values = c("EML" = "#D55E00", "ISO" = "#0072B2", "SOSO" = "#009E73")) +
+  scale_fill_manual(values = c("EML" = "#D55E00", "ISO" = "#0072B2", "SOSO" = "#009E73")) +
+  theme_bw(base_size = 14) +
+  theme(
+    strip.background = element_rect(fill = "#2C3E50"), # Dark header boxes for the F, A, I, R titles
+    strip.text = element_text(color = "white", face = "bold", size = 12),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  ) +
+  labs(
+    title = "Evolution of FAIR Scores by Metadata Dialect (2010 - Present)",
+    x = "Upload Year",
+    y = "Effect on Score (%)",
+    color = "Metadata Dialect",
+    fill = "Metadata Dialect"
+  )
+```
+
+
+```{r}
+draw(gam_A) +
+  theme(text = element_text(size = 8))
 
 ```
 
@@ -418,36 +608,41 @@ Here's the curation effect averaged over time.
 
 ```{r}
 data_change_avg <- data_ver %>% 
-  group_by(datasource, version_position) %>% 
-  summarise( n= n(),
-             Findable = mean(scoreFindable),
-             Accessible = mean(scoreAccessible),
-             Interoperable = mean(scoreInteroperable),
-             Reusable = mean(scoreReusable), .groups = "drop") %>% 
-  pivot_longer(cols = c(Findable, Accessible, Interoperable, Reusable), names_to = "metric", values_to = "mean") %>% 
+  pivot_longer(cols = starts_with("score"), names_to = "metric", values_to = "mean") %>% 
   mutate(datasource = gsub("urn:node:", "", datasource)) %>% 
-  mutate(mean = mean*100)
-
-trajectory_data <- data_change_avg %>%
-  select(datasource, metric, version_position, mean) %>%
-  pivot_wider(names_from = version_position, values_from = mean) %>%
-  mutate(
-    score_change = case_when(
-      last > first ~ "Increased",
-      last < first ~ "Decreased",
-      TRUE         ~ "No Change"
-    )
+  mutate(mean = mean*100) %>% 
+  select(sequenceId, datasource, metric, version_position, mean) %>%
+  pivot_wider(names_from = version_position, values_from = mean) %>% 
+  mutate(version_change = last-first) %>% 
+  group_by(datasource, metric) %>%
+  summarise(
+    mean_first = mean(first, na.rm = TRUE),
+    mean_last  = mean(last, na.rm = TRUE),
+    mean_change = mean(version_change, na.rm = TRUE),
+    .groups = "drop"
   ) %>%
-  select(datasource, metric, score_change)
+  mutate(score_change = case_when(
+    mean_last > mean_first ~ "Increased",
+    mean_last < mean_first ~ "Decreased",
+    TRUE                   ~ "No Change")
+  )
 
-data_enhanced <- data_change_avg %>%
-  left_join(trajectory_data, by = c("datasource", "metric")) %>%
-  mutate(datasource = forcats::fct_reorder(datasource, mean))
+data_plot <- data_change_avg %>%
+  pivot_longer(
+    cols = c(mean_first, mean_last),
+    names_to = "version_position", 
+    values_to = "plot_mean"
+  ) %>%
+  mutate(
+    version_position = gsub("mean_", "", version_position),
+    datasource = forcats::fct_reorder(datasource, mean_change) 
+  ) %>% 
+  filter(metric != "scoreOverall")
 
 ```
 
 ```{r}
-ggplot(data_enhanced, aes(x = mean, y = datasource)) +
+ggplot(data_plot, aes(x = plot_mean, y = datasource)) +
   geom_line(aes(group = datasource, color = score_change), linewidth = 1.2) +
   geom_point(aes(shape = version_position), size = 3, color = "black") +
   facet_wrap(~ metric, scales = "free_x") +
@@ -456,7 +651,7 @@ ggplot(data_enhanced, aes(x = mean, y = datasource)) +
       "Increased" = "#009E73", 
       "Decreased" = "#D55E00", 
       "No Change" = "gray70"
-    ), 
+    )
   ) +
   scale_shape_manual(
     values = c(
