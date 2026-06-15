@@ -302,18 +302,17 @@ data_gamm_prep <- data %>%
     grepl("schema", formatId) ~ "SOSO"
   )) 
 
-
+# figure out what year we can start and get reasonable ISO representation
 yearly_representation <- data_gamm_prep %>%
   mutate(upload_year = year(dateUploaded)) %>%
   group_by(upload_year, dialect) %>%
   summarize(total_datasets = n(), .groups = "drop") %>%
-  # Set minimum threshold for a "fair" representation (e.g., 20 datasets)
-  filter(total_datasets >= 20) %>%
-  group_by(dialect) %>%
+  filter(total_datasets >= 50) %>%
+  group_by(dialect) #%>%
   summarize(first_stable_year = min(upload_year))
 
 data_gamm_prep <- data_gamm_prep %>% 
-  filter(year(dateUploaded) > 2014) %>% 
+  filter(year(dateUploaded) > 2016) %>% 
   #filter(dialect == "EML") %>% 
   mutate(
     datasource = as.factor(datasource),
@@ -326,17 +325,21 @@ data_gamm_prep <- data_gamm_prep %>%
 ```
 
 
+Experimenting with k...there is so much noise in the data it is impossible to overfit. The wildly variable ISO records don't help things either.
+
 ```{r}
-gam_F <- bam(scoreFindable ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"),,
+k <- 500
+
+gam_F <- bam(scoreFindable ~ s(upload_year_dec, by = dialect, k = k) + dialect + s(datasource, bs = "re"),,
              discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
 
-gam_A <- bam(scoreAccessible ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"),,
+gam_A <- bam(scoreAccessible ~ s(upload_year_dec, by = dialect, k = k) + dialect + s(datasource, bs = "re"),,
              discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
 
-gam_I <- bam(scoreInteroperable ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"), ,
+gam_I <- bam(scoreInteroperable ~ s(upload_year_dec, by = dialect, k = k) + dialect + s(datasource, bs = "re"), ,
              discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
 
-gam_R <- bam(scoreReusable ~ s(upload_year_dec, by = dialect, k = 5) + dialect + s(datasource, bs = "re"), ,
+gam_R <- bam(scoreReusable ~ s(upload_year_dec, by = dialect, k = k) + dialect + s(datasource, bs = "re"), ,
              discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
 
 
@@ -351,38 +354,18 @@ all_fair_curves <- bind_rows(est_F, est_A, est_I, est_R) %>%
          .lower_ci = .estimate - (1.96 * .se),
          .upper_ci = .estimate + (1.96 * .se))
 
-ggplot(all_fair_curves, aes(x = upload_year_dec, y = .estimate, color = dialect, fill = dialect)) +
+dialect_colors <- c("EML" = "#26547c", "ISO" = "#ef476f", "SOSO" = "#ffd166")
+
+pc <- ggplot(all_fair_curves, aes(x = upload_year_dec, y = .estimate, color = dialect, fill = dialect)) +
   geom_ribbon(aes(ymin = .lower_ci, ymax = .upper_ci), alpha = 0.15, color = NA) +
   geom_line(linewidth = 1.2) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5, alpha = 0.6) +
-  geom_rug(
-    data = data_gamm_prep, 
-    aes(x = upload_year_dec, color = dialect), 
-    inherit.aes = FALSE, 
-    sides = "b", 
-    alpha = 0.05, # Highly transparent since you have so many datasets!
-    length = unit(0.04, "npc") # Makes the ticks slightly shorter so they don't crowd the lines
-  ) +
-  facet_wrap(~ Metric, scales = "free_y", ncol = 2) +
-  #scale_color_manual(values = c("Findable" = "#c70a61", "Accessible" = "#ff582d", "Interoperable" = "#1a6379", "Reusable" = "#60c5e4")) +
-  #scale_fill_manual(values = c("Findable" = "#c70a61", "Accessible" = "#ff582d", "Interoperable" = "#1a6379", "Reusable" = "#60c5e4")) +
-  scale_color_manual(
-    values = c(
-      "EML" = "#26547c", 
-      "ISO" = "#ef476f", 
-      "SOSO" = "#ffd166"
-    )
-  ) +
-  scale_fill_manual(
-    values = c(
-      "EML" = "#26547c", 
-      "ISO" = "#ef476f", 
-      "SOSO" = "#ffd166"
-    )
-  ) +
+  facet_wrap(~ Metric, scales = "free_y", ncol = 1) +
+  scale_color_manual(values = dialect_colors) +
+  scale_fill_manual(values = dialect_colors) +
   theme_bw(base_size = 14) +
   theme(
-    strip.background = element_rect(fill = "#2C3E50"), # Dark header boxes for the F, A, I, R titles
+    strip.background = element_rect(fill = "#2C3E50"),
     strip.text = element_text(color = "white", face = "bold", size = 12),
     legend.position = "bottom",
     legend.title = element_text(face = "bold"),
@@ -395,86 +378,38 @@ ggplot(all_fair_curves, aes(x = upload_year_dec, y = .estimate, color = dialect,
     color = "Metadata Dialect",
     fill = "Metadata Dialect"
   )
-```
 
-```{r}
-draw(gam_F) +
-  plot_layout(ncol = 4)
-
-ggsave("gamm_results.png", width = 20, height = 10, units = "in")
-```
-
-
-
-```{r}
-gam_F <- bam(scoreFindable ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
-             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
-
-gam_A <- bam(scoreAccessible ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
-             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
-
-gam_I <- bam(scoreInteroperable ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
-             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
-
-gam_R <- bam(scoreReusable ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
-             discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
-
-gam_overall <- bam(scoreOverall ~ s(upload_year_dec, by = dialect) + dialect + s(datasource, bs = "re"),
-                   discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
-
-est_F <- smooth_estimates(gam_F) %>% mutate(Metric = "Findable")
-est_A <- smooth_estimates(gam_A) %>% mutate(Metric = "Accessible")
-est_I <- smooth_estimates(gam_I) %>% mutate(Metric = "Interoperable")
-est_R <- smooth_estimates(gam_R) %>% mutate(Metric = "Reusable")
-
-all_fair_curves <- bind_rows(est_F, est_A, est_I, est_R) %>%
-  filter(grepl("upload_year_dec", .smooth)) %>%
-  mutate(Metric = factor(Metric, levels = c("Findable", "Accessible", "Interoperable", "Reusable")),
-         .lower_ci = .estimate - (1.96 * .se),
-         .upper_ci = .estimate + (1.96 * .se))
-```
-
-
-
-```{r}
-ggplot(all_fair_curves, aes(x = upload_year_dec, y = .estimate, color = dialect, fill = dialect)) +
-  
-  geom_ribbon(aes(ymin = .lower_ci, ymax = .upper_ci), alpha = 0.15, color = NA) +
-  geom_line(linewidth = 1.2) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "black", linewidth = 0.5, alpha = 0.6) +
-  geom_rug(
-    data = data_gamm_prep, 
-    aes(x = upload_year_dec, color = dialect), 
-    inherit.aes = FALSE, 
-    sides = "b", 
-    alpha = 0.05, # Highly transparent since you have so many datasets!
-    length = unit(0.04, "npc") # Makes the ticks slightly shorter so they don't crowd the lines
-  ) +
-  facet_wrap(~ Metric, scales = "free_y", ncol = 2) +
-  scale_color_manual(values = c("EML" = "#D55E00", "ISO" = "#0072B2", "SOSO" = "#009E73")) +
-  scale_fill_manual(values = c("EML" = "#D55E00", "ISO" = "#0072B2", "SOSO" = "#009E73")) +
+p_lanes <- ggplot(data_gamm_prep, aes(x = upload_year_dec, y = dialect, color = dialect)) +
+  geom_point(shape = 124, size = 6, alpha = 0.5) + 
+  scale_color_manual(values = dialect_colors) +
   theme_bw(base_size = 14) +
   theme(
-    strip.background = element_rect(fill = "#2C3E50"), # Dark header boxes for the F, A, I, R titles
-    strip.text = element_text(color = "white", face = "bold", size = 12),
-    legend.position = "bottom",
-    legend.title = element_text(face = "bold"),
-    panel.grid.minor = element_blank()
+    legend.position = "none",
+    panel.grid.major.x = element_line(color = "grey80"),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "transparent", color = NA),
+    axis.text.y = element_text(face = "bold")
   ) +
   labs(
-    title = "Evolution of FAIR Scores by Metadata Dialect (2010 - Present)",
     x = "Upload Year",
-    y = "Effect on Score (%)",
-    color = "Metadata Dialect",
-    fill = "Metadata Dialect"
+    y = "Density"
   )
+
+final_plot <- pc / p_lanes + plot_layout(heights = c(8, 1))
+ggsave("gamm_results_dialect.png", final_plot, height = 15, width = 8)
 ```
 
-
 ```{r}
-draw(gam_A) +
-  theme(text = element_text(size = 8))
+model_list <- list(
+  Findable      = gam_F,
+  Accessible    = gam_A,
+  Interoperable = gam_I,
+  Reusable      = gam_R
+)
 
+lapply(model_list,summary)
+
+gam.check(gam_A)
 ```
 
 
