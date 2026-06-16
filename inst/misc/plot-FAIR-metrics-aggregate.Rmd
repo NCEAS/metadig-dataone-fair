@@ -325,10 +325,10 @@ data_gamm_prep <- data_gamm_prep %>%
 ```
 
 
-Experimenting with k...there is so much noise in the data it is impossible to overfit. The wildly variable ISO records don't help things either.
+Experimenting with k...there is so much noise in the data it is impossible to overfit. The wildly variable ISO records don't help things either. Look at k ranging from 5 - 500.
 
 ```{r}
-k <- 500
+k <- 10
 
 gam_F <- bam(scoreFindable ~ s(upload_year_dec, by = dialect, k = k) + dialect + s(datasource, bs = "re"),,
              discrete = TRUE, nthreads = 10, method = "fREML", data = data_gamm_prep)
@@ -410,6 +410,26 @@ model_list <- list(
 lapply(model_list,summary)
 
 gam.check(gam_A)
+```
+
+
+```{r}
+df <- data %>% 
+  #mutate(datasource = gsub("urn:node:", "", datasource)) %>%
+  filter(is.na(obsoletedBy)) %>% 
+  mutate(dialect = case_when(
+    grepl("ecoinformatics", formatId) ~ "EML",
+    grepl("isotc211", formatId) ~ "ISO",
+    grepl("schema", formatId) ~ "SOSO"
+  )) %>% 
+  mutate(year = year(dateUploaded)) %>%
+  select(year, datasource, dialect, formatId, pid)
+  group_by(year, dialect) %>% 
+  summarise(n = n())
+
+```
+```{r}
+ggplot(df, aes(x = year, y = n, color = dialect)) + geom_line() + scale_y_log10(labels = scales::label_log())
 ```
 
 
