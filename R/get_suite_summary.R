@@ -10,6 +10,10 @@ get_suite_summary <- function(suite_path, checks_dir){
     
     for (check in all_checks) {
         id <- check %>% xml_find_first("id") %>% xml_text()
+        check_name <- check %>% xml_find_first("name") %>% xml_text()
+        desc <- check %>% xml_find_first("description") %>% xml_text()
+        type <- check %>% xml_find_first("type") %>% xml_text()
+        level <- check %>% xml_find_first("level") %>% xml_text()
         
         if (id %in% check_ids) {
             selectors <- xml_find_all(check, ".//selector")
@@ -35,33 +39,38 @@ get_suite_summary <- function(suite_path, checks_dir){
                     sub_paths <- c(sub_paths, rep(NA_character_, length(parent_paths) - length(sub_paths)))
                 }
                 
+                final_targets <- parent_paths
+                final_subs    <- sub_paths
+                dialect_tags  <- case_when(
+                    str_detect(final_targets, "^/?eml") ~ "EML",
+                    TRUE ~ "ISO"
+                )
+                
                 raw_expr <- xml_find_first(sel, "expression") %>% xml_text()
                 if (!is.na(raw_expr) && raw_expr != "") {
                     clean_expr <- str_remove(raw_expr, fixed("(.[\"@graph\"]? // [.] )[] | ")) %>% str_trim()
-                    parent_paths <- c(parent_paths, clean_expr)
-                    sub_paths <- c(sub_paths, NA_character_)
+                    
+                    final_targets <- c(final_targets, clean_expr)
+                    final_subs    <- c(final_subs, NA_character_)
+                    dialect_tags  <- c(dialect_tags, "SOSO")
                 }
                 
-                for (i in seq_along(parent_paths)) {
-                    target_path <- parent_paths[i]
-                    target_sub  <- sub_paths[i]
+                for (i in seq_along(final_targets)) {
+                    target_path <- final_targets[i]
+                    target_sub  <- final_subs[i]
+                    dialect_assigned <- dialect_tags[i]
                     
                     if (str_detect(target_path, "^/?resource")) {
                         next
                     }
                     
-                    dialect_assigned <- case_when(
-                        str_detect(target_path, "^/?eml") ~ "EML",
-                        str_detect(target_path, "(^if\\s|==|!=|\\|)") | (!is.na(raw_expr) && target_path == clean_expr) ~ "SOSO", 
-                        TRUE ~ "ISO"
-                    )
-                    
                     fair_checks <- bind_rows(fair_checks, data.frame(
                         check_id      = id,
+                        check_name    = check_name,
                         selector_name = sel_name,
                         sub_name      = sub_name,
                         expression    = target_path, 
-                        sub_xpath     = target_sub,
+                        sub_xpath     = target_sub,  
                         dialect       = dialect_assigned
                     ))
                 }
@@ -73,7 +82,7 @@ get_suite_summary <- function(suite_path, checks_dir){
 
 split_compound_paths <- function(xpath_str) {
     if (is.na(xpath_str) || xpath_str == "") return(character(0))
-    
+    xpath_str <- str_replace_all(xpath_str, "\\s+", " ") %>% str_trim()
     xpath_str <- str_replace(xpath_str, "^boolean\\(\\s*(.*?)\\s*\\)$", "\\1")
     
     protected_str <- str_replace_all(xpath_str, "\\[(.*?)\\]", function(m) {
