@@ -1,0 +1,247 @@
+---
+title: "FAIR Analysis"
+author: "Jeanette Clark"
+date: "2026-06-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(xml2)
+library(here)
+devtools::load_all(here("."))
+```
+
+```{r}
+node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/refs/heads/main/data/node_status.csv") %>% 
+    filter(as.Date(cn.latest) > as.Date("2025-01-01") | node_id == "urn:node:KNB") %>% 
+    select(node_id, cn.count, cn.latest) %>% 
+    filter(!(node_id %in% c("urn:node:mnUCSB1", "urn:node:CANWIN")))
+
+data <- get_agg_data() %>% filter(datasource %in% node_status$node_id)
+```
+
+
+
+# Table 1
+
+Fair checks, xpaths
+
+```{r}
+checks_dir <- "/home/jclark/metadig-checks/src/checks"
+suite_file <- "/home/jclark/metadig-checks/src/suites/FAIR-suite-0.5.0.xml"
+
+fair_checks <- get_suite_summary(suite_file, checks_dir)
+```
+
+# Fig 1
+
+Average scores by node, flower plots
+
+```{r}
+node_scores <- data %>% 
+    filter(is.na(obsoletedBy)) %>% 
+    get_node_scores_all_time()
+
+repo_flowers <- node_scores %>%
+    mutate(repo = fct_reorder(repo, score_100, .fun = mean, .desc = TRUE)) %>%
+    split(.$repo) %>% 
+    purrr::imodify( ~ make_flower_plot(as.data.frame(.x), title = .y))
+
+# get scores across all dataone
+all_repos <- node_scores %>% 
+    group_by(label) %>% 
+    summarise(score = mean(score, na.rm = T)) %>% 
+    mutate(score_100 = score*100) %>% 
+    mutate(label = factor(label, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
+    arrange(label)
+
+central_master_plot <- make_flower_plot(
+    all_repos, 
+    title = "DataONE Network") +
+    theme(
+        plot.title = element_text(size = 28, face = "bold"), # Much bigger font
+        text = element_text(size = 20) # Bigger mean text
+    )
+
+# optionally make lower scoring nodes anonymous  
+#for (i in 13:length(repo_flowers)){
+#  repo_flowers[[i]] <- repo_flowers[[i]] + ggtitle("")
+#}
+
+p_base <- ggplot() + theme_void()
+
+step_x <- 1 / 7   # 7 columns
+step_y <- 1 / 6   # 6 rows
+
+
+dashboard <- p_base + patchwork::inset_element(
+    central_master_plot, 
+    left   = 2 * step_x,  # Leaves 2 columns on the left
+    bottom = 2 * step_y,  # Leaves 2 rows on the bottom
+    right  = 5 * step_x,  # Leaves 2 columns on the right
+    top    = 4 * step_y,  # Leaves 2 rows on the top
+    clip   = FALSE
+)
+
+coords <- expand.grid(col = 1:7, row = 1:6)
+coords <- subset(coords, !(col %in% 3:5 & row %in% 3:4))
+
+
+coords$left   <- (coords$col - 1) * step_x
+coords$right  <- coords$col * step_x
+coords$bottom <- (coords$row - 1) * step_y
+coords$top    <- coords$row * step_y
+
+# Sort the plotting order from top-left to bottom-right
+coords <- coords[order(-coords$row, coords$col), ]
+
+# loop through plots and drop them onto the canvas
+for (i in seq_along(rev(repo_flowers))) {
+    dashboard <- dashboard + patchwork::inset_element(
+        repo_flowers[[i]],
+        left   = coords$left[i], 
+        bottom = coords$bottom[i], 
+        right  = coords$right[i], 
+        top    = coords$top[i],
+        clip   = FALSE
+    )
+}
+
+dashboard
+
+ggsave(
+    filename = "fair_dashboard_inset.png", 
+    plot = dashboard, 
+    width = 25, height = 25, dpi = 200, 
+    bg = "white"
+)
+```
+
+
+## Fig 2: Check results by dialect
+
+```{r}
+run_results <- open_dataset("/home/jclark/metadig-data/run-data-0.5.0") %>% 
+    collect() %>% 
+    rename(pid = obj_id, obsoletedBy = obsoleted_by) %>% 
+    filter(run_status == "success") %>% 
+    mutate(dialect = case_when(
+        grepl("ecoinformatics", format_id) ~ "EML",
+        grepl("isotc211", format_id) ~ "ISO",
+        grepl("schema", format_id) ~ "SOSO"
+    ))
+
+check_results <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0")
+
+checks_calc <- check_results %>% 
+    inner_join(run_results) %>% 
+    filter(!is.na(obsoletedBy)) %>% 
+    group_by(check_name, dialect, check_type, check_level) %>%
+    summarise(
+        total_runs = n(),
+        mean_score = mean(check_status == "SUCCESS", na.rm = TRUE) * 100,
+        .groups = "drop"
+    ) %>%
+    collect()
+
+fair_checks <- get_suite_summary("/home/jclark/metadig-checks/src/suites/FAIR-suite-0.5.0.xml", "/home/jclark/metadig-checks/src/checks/")
+
+supported_dialects <- fair_checks %>%
+    select(check_name, dialect) %>%
+    distinct() %>%
+    mutate(is_supported = TRUE)
+
+check_error <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/check-error-fail-reasons-summary.csv") %>% 
+    select(check_name, dialect, notes_controlled) %>% 
+    filter(!dialect == "") %>% 
+    distinct() %>% 
+    left_join(supported_dialects, by = c("check_name", "dialect")) %>%
+    mutate(notes_controlled = case_when(
+            is.na(is_supported) ~ "not supported", 
+            TRUE ~ notes_controlled 
+        )) %>%
+    select(-is_supported)
+
+
+
+plot_ready <- checks_calc %>%
+    left_join(check_error, by = join_by(check_name, dialect)) %>% 
+    mutate(check_name_sorted = tidytext::reorder_within(check_name, mean_score, check_type)) %>% 
+    mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled))
+
+ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
+    geom_point(aes(color = dialect, shape = notes_controlled), size = 3, alpha = 0.8, position = position_jitter(width = 0, height = 0.15)) +
+    facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
+    tidytext::scale_y_reordered() +
+    scale_color_manual(
+        values = c(
+            "EML" = "#26547c", 
+            "ISO" = "#ef476f", 
+            "SOSO" = "#ffd166"
+        )
+    ) +
+    scale_shape_manual(
+        values = c(
+            "not supported" = 1,
+            "broken" = 4),
+        na.value = 16,
+        breaks = c("not supported", "broken")
+    ) +
+    guides(
+        color = guide_legend(order = 1),
+        shape = guide_legend(order = 2)
+    ) +
+    theme_bw() +
+    theme(
+        legend.position = "bottom",
+        legend.box = "vertical",
+        panel.grid.minor = element_blank(),
+        strip.background = element_rect(fill = "gray95"),
+        strip.text = element_text(face = "bold", size = 11)
+    ) +
+    labs(x = "", y = "", shape = "")
+
+ggsave("checks-by-dialect2.png", width = 13, height = 6, units = "in")
+```
+
+## Fig 3: So much variability month to month!
+
+```{r}
+monthly_avg <- data %>% 
+    group_by(datasource, metric) %>% 
+    group_modify(~ get_scores_mean_ym(.)) %>% 
+    mutate(metric = factor(
+      metric, 
+      levels = c("f", "a", "i", "r"),
+      labels = c("Findable", "Accessible", "Interoperable", "Reusable")
+    )
+  )
+    
+
+ggplot(monthly_avg, aes(x = ym, y = score_100)) +
+  geom_point(aes(color = datasource), alpha = 0.5) + 
+  geom_smooth(color = "black", linewidth = 1.2, se = FALSE) + 
+  facet_wrap(~ metric, ncol = 2) +
+  scale_color_viridis_d(option = "mako") + 
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.background = element_rect(fill = "gray95"),
+    strip.text = element_text(face = "bold", size = 12)
+  ) +
+  labs(
+    x = "", 
+    y = "Monthly Score",
+    color = "Repository",
+    caption = "Data points are colored by repository (n = 40)."
+  )
+
+ggsave("monthly-timeseries-anon.png", width = 8, height = 6, units = "in")
+```
+
