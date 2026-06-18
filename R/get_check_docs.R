@@ -23,9 +23,9 @@ get_check_docs <- function(pid_list = NULL, suite, docs_dir){
         dir.create(docs_dir)
     }
     # first try a pid list extracted directly from DB
-    if (file.exists(pid_list)){
+    if (file.exists(pid_list) & !is.null(pid_list)){
 
-        # kubectl exec metadig-pg-6 -- sh -c "export PGPASSWORD={$PASS}; psql -U metadig -d metadig -h 127.0.0.1 -c \"COPY (SELECT runs.metadata_id,  runs.timestamp, data_source FROM runs JOIN identifiers ON runs.metadata_id = identifiers.metadata_id WHERE suite_id = 'FAIR-suite-0.5.0') TO STDOUT WITH CSV HEADER\"" > output.csv
+        # kubectl exec metadig-pg-6 -- sh -c "export PGPASSWORD=metadig; psql -U metadig -d metadig -h 127.0.0.1 -c \"COPY (SELECT runs.metadata_id,  runs.timestamp, data_source FROM runs JOIN identifiers ON runs.metadata_id = identifiers.metadata_id WHERE suite_id = 'FAIR-suite-0.5.0') TO STDOUT WITH CSV HEADER\"" > fair-5-pids-20260617.csv
 
         pid_df <- read.csv(pid_list)
         pids <- pid_df$metadata_id

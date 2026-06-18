@@ -1,34 +1,41 @@
-
+#' Get a summary of all the checks and their xpaths/jq
+#'
+#' @param suite_path 
+#' @param checks_dir 
+#'
+#' @import xml2
+#' @export
+#'
 get_suite_summary <- function(suite_path, checks_dir){
     check_files <- dir(checks_dir, full.names = TRUE)
     all_checks <- lapply(check_files, read_xml)
-    check_ids <- read_xml(suite_path) %>% 
-        xml_find_all("check/id") %>% 
-        xml_text()
+    check_ids <- xml2::read_xml(suite_path) %>% 
+        xml2::xml_find_all("check/id") %>% 
+        xml2::xml_text()
     
     fair_checks <- data.frame()
     
     for (check in all_checks) {
-        id <- check %>% xml_find_first("id") %>% xml_text()
-        check_name <- check %>% xml_find_first("name") %>% xml_text()
-        desc <- check %>% xml_find_first("description") %>% xml_text()
-        type <- check %>% xml_find_first("type") %>% xml_text()
-        level <- check %>% xml_find_first("level") %>% xml_text()
+        id <- check %>% xml2::xml_find_first("id") %>% xml2::xml_text()
+        check_name <- check %>% xml2::xml_find_first("name") %>% xml2::xml_text()
+        desc <- check %>% xml2::xml_find_first("description") %>% xml2::xml_text()
+        type <- check %>% xml2::xml_find_first("type") %>% xml2::xml_text()
+        level <- check %>% xml2::xml_find_first("level") %>% xml2::xml_text()
         
         if (id %in% check_ids) {
-            selectors <- xml_find_all(check, ".//selector")
+            selectors <- xml2::xml_find_all(check, ".//selector")
             
             for (sel in selectors) {
-                sel_name <- xml_find_first(sel, "name") %>% xml_text() %>% str_trim()
+                sel_name <- xml2::xml_find_first(sel, "name") %>% xml2::xml_text() %>% str_trim()
                 
-                raw_xpath <- xml_find_first(sel, "xpath") %>% xml_text()
+                raw_xpath <- xml2::xml_find_first(sel, "xpath") %>% xml2::xml_text()
                 parent_paths <- split_compound_paths(raw_xpath)
                 
-                sub_node <- xml_find_first(sel, "subSelector")
+                sub_node <- xml2::xml_find_first(sel, "subSelector")
                 
                 if (!is.na(sub_node)) {
-                    sub_name  <- xml_find_first(sub_node, "name") %>% xml_text() %>% str_trim()
-                    raw_sub   <- xml_find_first(sub_node, "xpath") %>% xml_text()
+                    sub_name  <- xml2::xml_find_first(sub_node, "name") %>% xml2::xml_text() %>% str_trim()
+                    raw_sub   <- xml2::xml_find_first(sub_node, "xpath") %>% xml2::xml_text()
                     sub_paths <- split_compound_paths(raw_sub)
                 } else {
                     sub_name  <- NA_character_
@@ -46,7 +53,7 @@ get_suite_summary <- function(suite_path, checks_dir){
                     TRUE ~ "ISO"
                 )
                 
-                raw_expr <- xml_find_first(sel, "expression") %>% xml_text()
+                raw_expr <- xml2::xml_find_first(sel, "expression") %>% xml2::xml_text()
                 if (!is.na(raw_expr) && raw_expr != "") {
                     clean_expr <- str_remove(raw_expr, fixed("(.[\"@graph\"]? // [.] )[] | ")) %>% str_trim()
                     
@@ -82,21 +89,21 @@ get_suite_summary <- function(suite_path, checks_dir){
 
 split_compound_paths <- function(xpath_str) {
     if (is.na(xpath_str) || xpath_str == "") return(character(0))
-    xpath_str <- str_replace_all(xpath_str, "\\s+", " ") %>% str_trim()
-    xpath_str <- str_replace(xpath_str, "^boolean\\(\\s*(.*?)\\s*\\)$", "\\1")
+    xpath_str <- stringr::str_replace_all(xpath_str, "\\s+", " ") %>% stringr::str_trim()
+    xpath_str <- stringr::str_replace(xpath_str, "^boolean\\(\\s*(.*?)\\s*\\)$", "\\1")
     
     protected_str <- str_replace_all(xpath_str, "\\[(.*?)\\]", function(m) {
-        m <- str_replace_all(m, "\\|", "___PIPE___")
-        m <- str_replace_all(m, "\\s+or\\s+", "___OR___") # Protect 'or' inside predicates
+        m <- stringr::str_replace_all(m, "\\|", "___PIPE___")
+        m <- stringr::str_replace_all(m, "\\s+or\\s+", "___OR___") # Protect 'or' inside predicates
         return(m)
     })
     
-    paths <- str_split(protected_str, "\\s*\\|\\s*|\\s+or\\s+")[[1]]
+    paths <- stringr::str_split(protected_str, "\\s*\\|\\s*|\\s+or\\s+")[[1]]
     
-    paths <- str_replace_all(paths, "___PIPE___", "|") %>%
-        str_replace_all("___OR___", " or ") %>%
-        str_replace_all("\\s+", " ") %>%
-        str_trim()
+    paths <- stringr::str_replace_all(paths, "___PIPE___", "|") %>%
+        stringr::str_replace_all("___OR___", " or ") %>%
+        stringr::str_replace_all("\\s+", " ") %>%
+        stringr::str_trim()
     
     return(paths)
 }

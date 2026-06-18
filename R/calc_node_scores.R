@@ -54,15 +54,14 @@ get_node_scores_all_time <- function(data){
     
 }
 
-#' Calculate Cumulative Monthly Mean FAIR Scores
+#' Calculate Monthly Mean FAIR Scores
 #'
 #' Aggregates assessment data into a chronological monthly timeline per node, and computes 
-#' expanding cumulative means tracking scores over time.
+#' means.
 #'
 #' @param data A data frame containing raw quality scores from `get_agg_data`.
 #'
-#' @return A long-format data frame showing monthly progression records mapped with their
-#'   cumulative scores.
+#' @return A long-format data frame showing monthly means.
 #'
 #' @importFrom lubridate year month
 #' @importFrom dplyr mutate filter arrange group_by summarise ungroup select %>%
@@ -82,10 +81,9 @@ get_scores_mean_ym <- function(data){
                   a=mean(scoreAccessible),
                   i=mean(scoreInteroperable),
                   r=mean(scoreReusable), .groups = "keep") %>%
-        mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r)) %>%
         ungroup() %>% 
-        select(ym, f, a, i, r, fc, ac, ic, rc, num_mean) %>% 
-        pivot_longer(cols = c(f, a, i, r, fc, ac, ic, rc), names_to = "metric", values_to = "score") %>% 
+        select(ym, f, a, i, r, num_mean) %>% 
+        pivot_longer(cols = c(f, a, i, r), names_to = "metric", values_to = "score") %>% 
         mutate(score_100 = score*100)
     
     return(cum_repo)
