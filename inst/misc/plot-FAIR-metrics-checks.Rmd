@@ -15,7 +15,7 @@ library(tidyverse)
 library(arrow)
 library(here)
 library(tidytext)
-devtools::load_all()
+devtools::load_all(here())
 ```
 
 Load in the check data.
@@ -91,6 +91,41 @@ ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
 ## Checks that error
 
 Worth digging in a little to check out which checks frequently error. 
+
+```{r}
+checks_zero <- checks_calc %>% 
+  filter(mean_score > 0 & mean_score < 10) %>% 
+  select(check_name, dialect)
+
+check_examples <- check_results %>% 
+  inner_join(runs) %>% 
+  inner_join(checks_zero) %>% 
+  select(check_name, check_output, check_level, dialect, check_output, check_status) %>% 
+  distinct() %>% 
+  collect()
+
+check_test <- runs %>% 
+  filter(dialect == "ISO") %>% 
+  group_by(origin_mn) %>% 
+  arrange(desc(as.Date(dateUploaded))) %>% 
+  slice_head(n = 5) %>% 
+  select(pid, origin_mn, dateUploaded)
+
+```
+
+
+```{r}
+url_stub <- "https://cn.dataone.org/cn/v2/object/"
+for (i in 1:length(check_test$pid)){
+  pid <- check_test$pid[i]
+  content_str <- rawToChar(httr::GET(paste0(url_stub, URLencode(pid)))$content)
+  print(paste0(url_stub, URLencode(pid)))
+  print(check_test$origin_mn[i])
+  print(stringr::str_extract(content_str, "(?i).{0,200}title.{0,200}"))
+}
+
+```
+
 
 ```{r}
 errors <- check_results %>% 

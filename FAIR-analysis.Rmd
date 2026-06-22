@@ -123,7 +123,6 @@ ggsave(
 )
 ```
 
-
 ## Fig 2: Check results by dialect
 
 ```{r}
@@ -214,7 +213,7 @@ ggsave("checks-by-dialect2.png", width = 13, height = 6, units = "in")
 
 ```{r}
 monthly_avg <- data %>% 
-    group_by(datasource, metric) %>% 
+    group_by(datasource) %>% 
     group_modify(~ get_scores_mean_ym(.)) %>% 
     mutate(metric = factor(
       metric, 
@@ -222,18 +221,37 @@ monthly_avg <- data %>%
       labels = c("Findable", "Accessible", "Interoperable", "Reusable")
     )
   )
-    
 
-ggplot(monthly_avg, aes(x = ym, y = score_100)) +
-  geom_point(aes(color = datasource), alpha = 0.5) + 
+dominant_df <- data %>%
+    mutate(dialect = case_when(
+        grepl("ecoinformatics", formatId) ~ "EML",
+        grepl("isotc211", formatId) ~ "ISO",
+        grepl("schema", formatId) ~ "SOSO"
+    )) %>% 
+    mutate(ym = as.Date(sprintf("%4s-%02d-01",
+                                    lubridate::year(dateUploaded), 
+                                    lubridate::month(dateUploaded)))) %>% 
+  filter(dateUploaded > as.Date("2000-01-01")) %>% 
+  count(ym, dialect, datasource) %>%  
+  group_by(ym, datasource) %>%
+  slice_max(order_by = n, n = 1, with_ties = FALSE)
+
+monthly_avg_dialect <- monthly_avg %>% left_join(dominant_df)
+
+ggplot(monthly_avg_dialect, aes(x = ym, y = score_100)) +
+  geom_point(aes(color = datasource, shape = dialect), alpha = 0.8, size = 1.5) + 
   geom_smooth(color = "black", linewidth = 1.2, se = FALSE) + 
   facet_wrap(~ metric, ncol = 2) +
   scale_color_viridis_d(option = "mako") + 
   theme_bw() +
   theme(
-    legend.position = "none",
+    legend.position = "bottom",
     strip.background = element_rect(fill = "gray95"),
     strip.text = element_text(face = "bold", size = 12)
+  ) +
+  guides(
+    color = "none", 
+    shape = guide_legend(title = "Dominant Dialect")
   ) +
   labs(
     x = "", 

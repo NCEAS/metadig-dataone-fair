@@ -259,7 +259,7 @@ Even with the parallel processing this takes a long time to run so be warned. I 
 
 ```{r, eval = F}
 source(here("R/calc_node_scores.R")) # annoyingly we have to source the function if we are using parallel beacuse the package isn't installing right now
-future::plan(multisession, workers = 36)
+future::plan(multisession, workers = 40)
 
 results_by_node <- data %>%
   split(.$datasource) %>%
