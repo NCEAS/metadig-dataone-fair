@@ -13,7 +13,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(tidyr)
 library(xml2)
+library(forcats)
 library(here)
+library(stringr)
 devtools::load_all(here("."))
 ```
 
@@ -25,7 +27,6 @@ node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/re
 
 data <- get_agg_data() %>% filter(datasource %in% node_status$node_id)
 ```
-
 
 
 # Table 1
@@ -77,7 +78,7 @@ central_master_plot <- make_flower_plot(
 p_base <- ggplot() + theme_void()
 
 step_x <- 1 / 7   # 7 columns
-step_y <- 1 / 6   # 6 rows
+step_y <- 1 / 6   # 7 rows
 
 
 dashboard <- p_base + patchwork::inset_element(
@@ -141,6 +142,8 @@ check_results <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0")
 checks_calc <- check_results %>% 
     inner_join(run_results) %>% 
     filter(!is.na(obsoletedBy)) %>% 
+    mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>%
+    filter(check_status != "ERROR") %>% 
     group_by(check_name, dialect, check_type, check_level) %>%
     summarise(
         total_runs = n(),
@@ -167,46 +170,56 @@ check_error <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/check-error
         )) %>%
     select(-is_supported)
 
+check_sub_cat <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/fair-suite-categories.csv")
 
 
 plot_ready <- checks_calc %>%
-    left_join(check_error, by = join_by(check_name, dialect)) %>% 
-    mutate(check_name_sorted = tidytext::reorder_within(check_name, mean_score, check_type)) %>% 
-    mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled))
+  left_join(check_error, by = join_by(check_name, dialect)) %>% 
+  left_join(check_sub_cat) %>% 
+  arrange(check_type, metadata_subcategory, mean_score) %>%
+  mutate(
+    clean_check = gsub("\\s+", "", check_name),
+    clean_subcat = gsub("\\s+", "", metadata_subcategory)
+  ) %>% 
+  mutate(nested_name = paste(clean_check, clean_subcat, sep = ".")) %>% 
+  mutate(nested_name = factor(nested_name, levels = unique(nested_name))) %>% 
+  mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled)) 
 
-ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
-    geom_point(aes(color = dialect, shape = notes_controlled), size = 3, alpha = 0.8, position = position_jitter(width = 0, height = 0.15)) +
-    facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
-    tidytext::scale_y_reordered() +
-    scale_color_manual(
-        values = c(
-            "EML" = "#26547c", 
-            "ISO" = "#ef476f", 
-            "SOSO" = "#ffd166"
-        )
-    ) +
-    scale_shape_manual(
-        values = c(
-            "not supported" = 1,
-            "broken" = 4),
-        na.value = 16,
-        breaks = c("not supported", "broken")
-    ) +
-    guides(
-        color = guide_legend(order = 1),
-        shape = guide_legend(order = 2)
-    ) +
-    theme_bw() +
-    theme(
-        legend.position = "bottom",
-        legend.box = "vertical",
-        panel.grid.minor = element_blank(),
-        strip.background = element_rect(fill = "gray95"),
-        strip.text = element_text(face = "bold", size = 11)
-    ) +
-    labs(x = "", y = "", shape = "")
+ggplot(plot_ready, aes(x = mean_score, y = nested_name)) +
+  geom_point(aes(color = dialect, shape = notes_controlled), size = 3, alpha = 0.8, position = position_jitter(width = 0, height = 0.15)) +
+  facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
+  
+  guides(
+    y = "axis_nested",
+    color = guide_legend(order = 1),
+    shape = guide_legend(order = 2)
+  ) +
+  
+  scale_color_manual(
+    values = c(
+      "EML" = "#26547c", 
+      "ISO" = "#ef476f", 
+      "SOSO" = "#ffd166"
+    )
+  ) +
+  scale_shape_manual(
+    values = c(
+      "not supported" = 1,
+      "broken" = 4),
+    na.value = 16,
+    breaks = c("not supported", "broken")
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical",
+    panel.grid.minor = element_blank(),
+    strip.background = element_rect(fill = "gray95"),
+    strip.text = element_text(face = "bold", size = 11)
+  ) +
+  labs(x = "", y = "", shape = "")
 
-ggsave("checks-by-dialect2.png", width = 13, height = 6, units = "in")
+ggsave("checks-by-dialect.png", width = 13, height = 8, units = "in")
 ```
 
 ## Fig 3: So much variability month to month!
