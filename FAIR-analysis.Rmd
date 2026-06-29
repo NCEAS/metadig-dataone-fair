@@ -16,6 +16,7 @@ library(xml2)
 library(forcats)
 library(here)
 library(stringr)
+library(lengendry)
 devtools::load_all(here("."))
 ```
 
@@ -177,20 +178,16 @@ plot_ready <- checks_calc %>%
   left_join(check_error, by = join_by(check_name, dialect)) %>% 
   left_join(check_sub_cat) %>% 
   arrange(check_type, metadata_subcategory, mean_score) %>%
-  mutate(
-    clean_check = gsub("\\s+", "", check_name),
-    clean_subcat = gsub("\\s+", "", metadata_subcategory)
-  ) %>% 
-  mutate(nested_name = paste(clean_check, clean_subcat, sep = ".")) %>% 
+  mutate(nested_name = paste(check_name, metadata_subcategory, sep = ":::")) %>% 
   mutate(nested_name = factor(nested_name, levels = unique(nested_name))) %>% 
-  mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled)) 
+  mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled))
 
 ggplot(plot_ready, aes(x = mean_score, y = nested_name)) +
   geom_point(aes(color = dialect, shape = notes_controlled), size = 3, alpha = 0.8, position = position_jitter(width = 0, height = 0.15)) +
   facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
   
   guides(
-    y = "axis_nested",
+    y = guide_axis_nested(":::", type = "box"),
     color = guide_legend(order = 1),
     shape = guide_legend(order = 2)
   ) +
