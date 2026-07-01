@@ -81,6 +81,7 @@ get_scores_mean_ym <- function(data){
                   a=mean(scoreAccessible),
                   i=mean(scoreInteroperable),
                   r=mean(scoreReusable), .groups = "keep") %>%
+        
         ungroup() %>% 
         select(ym, f, a, i, r, num_mean) %>% 
         pivot_longer(cols = c(f, a, i, r), names_to = "metric", values_to = "score") %>% 
@@ -175,4 +176,24 @@ get_scores_monthly_state <- function(data){
         arrange(ym, metric)
     
     return(as.data.frame(long_df))
+}
+
+get_scores_quantiles_ym <- function(data) {
+    data %>% mutate(ym = as.Date(sprintf("%4s-%02d-01",
+                                    lubridate::year(dateUploaded), 
+                                    lubridate::month(dateUploaded)))) %>% 
+        filter(dateUploaded > as.Date("2000-01-01")) %>% 
+        pivot_longer(
+            cols = c(scoreFindable, scoreAccessible, scoreInteroperable, scoreReusable), 
+            names_to = "metric", 
+            values_to = "score"
+        ) %>%
+        group_by(ym, metric) %>%
+        summarise(
+            num_records = n(),
+            mean_score  = mean(score, na.rm = TRUE) * 100,
+            p25         = quantile(score, 0.25, na.rm = TRUE) * 100,
+            p75         = quantile(score, 0.75, na.rm = TRUE) * 100,
+            .groups     = "drop"
+        )
 }

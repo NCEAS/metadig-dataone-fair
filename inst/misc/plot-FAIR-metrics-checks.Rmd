@@ -31,7 +31,7 @@ data_clean <- assign_sequence_id(run_results) %>%  # takes about 5 minutes
   rename(dateUploaded = date_uploaded)
 
 
-runs <- data_clean %>% 
+runs <- run_results %>% 
   mutate(dialect = case_when(
     grepl("ecoinformatics", format_id) ~ "EML",
     grepl("isotc211", format_id) ~ "ISO",
@@ -90,7 +90,7 @@ ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
 
 ## Checks that error
 
-Worth digging in a little to check out which checks frequently error. 
+Worth digging in a little to check out which checks frequently error or are unexpectedly
 
 ```{r}
 checks_zero <- checks_calc %>% 
@@ -104,24 +104,27 @@ check_examples <- check_results %>%
   distinct() %>% 
   collect()
 
-check_test <- runs %>% 
+check_test <- check_results %>%
+  inner_join(runs) %>% 
+  filter(check_name == "Resource License Present" & check_status == "FAILURE") %>% 
   filter(dialect == "ISO") %>% 
   group_by(origin_mn) %>% 
-  arrange(desc(as.Date(dateUploaded))) %>% 
+  collect() %>% 
+  arrange(desc(as.Date(date_uploaded))) %>% 
   slice_head(n = 5) %>% 
-  select(pid, origin_mn, dateUploaded)
+  select(pid, origin_mn, date_uploaded, check_output)
 
 ```
 
 
 ```{r}
 url_stub <- "https://cn.dataone.org/cn/v2/object/"
-for (i in 1:length(check_test$pid)){
+for (i in 1:15){
   pid <- check_test$pid[i]
   content_str <- rawToChar(httr::GET(paste0(url_stub, URLencode(pid)))$content)
   print(paste0(url_stub, URLencode(pid)))
   print(check_test$origin_mn[i])
-  print(stringr::str_extract(content_str, "(?i).{0,200}title.{0,200}"))
+  print(stringr::str_extract(content_str, "(?is).{0,200}MD_LegalConstraints.{0,200}"))
 }
 
 ```

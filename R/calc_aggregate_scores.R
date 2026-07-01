@@ -11,7 +11,7 @@
 #' @import dplyr
 #' @importFrom tidyr pivot_wider
 #' @export
-calc_aggregate_scores <- function(checks_dir, runs_dir){
+calc_aggregate_scores <- function(checks_dir, runs_dir, check_exclusions){
 
     
     checks <- open_dataset(checks_dir)
@@ -21,6 +21,8 @@ calc_aggregate_scores <- function(checks_dir, runs_dir){
         filter(!(run_status %in% c("ERROR", "failure", "processing")))
     
     checks_calc <- checks %>% 
+        # filter out erroring checks
+        filter(!(check_name %in% check_exclusions)) %>% 
         mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>% 
         filter(check_status != "ERROR") %>% 
         mutate(
