@@ -16,11 +16,12 @@ library(xml2)
 library(forcats)
 library(here)
 library(stringr)
-library(legendry)
+library(ggforce)
 library(ggridges)
 library(zoo)
 devtools::load_all(here("."))
 ```
+
 
 ```{r}
 node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/refs/heads/main/data/node_status.csv") %>% 
@@ -55,10 +56,17 @@ run_results <- open_dataset("/home/jclark/metadig-data/run-data-0.5.0") %>%
   ungroup()
 ```
 
+## Methods
 
-# 1. Repository Effects
+Analyzed documents are restricted to those from member nodes that have been harvested by DataONE on or after January 1, 2025. Additionally, the documents used are also neccesarily of a dialect that is supported by MetaDIG. The three supported dialects are Ecological Metadata Language (EML), ISO 19115 (ISO), and Science on Schema.org (SOSO). This sample consists of X total documents from Y nodes. In DataONE, datasets are versioned by identifier into an obsolesence chain. These chains are identified and given their own identifier to use in analysis where relevant. Except where explicitly noted, all analyses only include the most recent version of a dataset metadata document. 
 
-Although scores show a roughly normal distribution, long tails especially in A/I/R show that differences in repositories themselves affect the score.
+(should this go in Results?)
+During data processing, some anomalies in the check-level data were noted and investigated. As a result of this work, three checks were found to be producing errors consistently for one or more dialects. The "Resource title length" check was found to not account for all possible ISO configurations of the dataset title, and therefore was incorrectly failing when it should have passed. Also for ISO documents, the xpath used in the "Resource License Present" check was found to be too strict, and was not finding legigitimate and well structured uses of the schema. Finally, for SOSO documents, the "Entity checksum and algorithm are present" check was found to give many false positives - passing results when the information did not exist. Because of these errors, these three checks were excluded from the analysis and the calculation of all scores. This does alter the results, in that with fewer overall checks, the denominator is lower, so failing checks will lower scores correspondingly more than with the full suite. Additionally, datasets will not get credit that they would have recieved for passing these checks. Despite this, we still believe the overall trends in the results are unchanged without these 3 checks.
+
+## Results
+
+### 1. Repository Effects
+
 
 ```{r}
 node_scores <- agg_scores %>% 
@@ -93,11 +101,35 @@ ggplot(ridge_data, aes(x = score_100, y = label, fill = label)) +
     axis.title.y = element_blank()
   ) +
   labs(
-    x = "Score (%)",
-    title = "FAIR Score Distribution Across All Repositories"
+    x = "Score",
+    title = "Mean FAIR Score Distribution Across DataONE Repositories"
   )
 ```
 
+```{r}
+get_metric <- function(data, metric, fn) {
+ if (fn == "mean") {
+   metric <- round(filter(data, label == metric) %>% pull(score_100) %>% mean(na.rm = TRUE), 2)
+ } else if (fn == "sd") {
+   metric <- round(filter(data, label == metric) %>% pull(score_100) %>% sd(na.rm = TRUE), 2)
+ } else if (fn == "q_10") {
+   metric <- round(filter(data, label == metric) %>% pull(score_100) %>% quantile(probs = 0.10, na.rm = TRUE), 2)
+ } else if (fn == "q_90") {
+   metric <- round(filter(data, label == metric) %>% pull(score_100) %>% quantile(probs = 0.90, na.rm = TRUE), 2)
+ } else if (fn == "median") {
+   metric <- round(filter(data, label == metric) %>% pull(score_100) %>% median(na.rm = TRUE), 2)
+ } 
+  return(metric)
+}
+```
+
+
+Metadata quality varied significantly by metric across the Y repositories. Repositories scored the highest in the Findable metric (M = `r get_metric(node_scores, "Findable", "mean")`, SD = `r get_metric(node_scores, "Findable", "sd")`), followed by Accessible (M = `r get_metric(node_scores, "Accessible", "mean")`, SD = `r get_metric(node_scores, "Accessible", "sd")`), Interoperable (M = `r get_metric(node_scores, "Interoperable", "mean")`, SD = `r get_metric(node_scores, "Interoperable", "sd")`), and Reusable (M = `r get_metric(node_scores, "Reusable", "mean")`, SD = `r get_metric(node_scores, "Reusable", "sd")`). Variability was highest for Interoperable, which had a difference of `r get_metric(node_scores, "Interoperable", 'q_90') - get_metric(node_scores, "Interoperable", 'q_10')`% between the 90th and 10th percent quantiles, in contrast to Findable with a difference of only `r get_metric(node_scores, "Findable", 'q_90') - get_metric(node_scores, "Findable", 'q_10')`%. 
+
+(probably for Discussion section)
+The wide distribution of mean scores between repositories, especially in A/I/R show that differences in repositories themselves are important drivers of metadata quality. These differences are likely largely driven by varying standards and protocols used by each repository, including differences in dialect used, curation level, internal metadata standards, and metadata sharing/replication methods. (possible discussion about how metadata on the CN might not always capture the richness of metadata available on the MN, or even within the files themselves, eg: netCDF with embedded metadata that is not captured here).
+
+Key point: The repository matters.
 
 ```{r, eval = FALSE}
 repo_flowers <- node_scores %>%
@@ -169,9 +201,7 @@ ggsave(
 )
 ```
 
-## Fig 2: Dialect Effects
-
-Although there are differences in the maximum score each dialect is able to receive, the variability within each dialect is much larger than differences between the maximum scores. This implies that the use of a dialect is more important than the dialect chosen. Rich metadata can be written in any dialect.
+### Fig 2: Dialect Effects
 
 ```{r}
 fair_checks <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0") %>% 
@@ -208,12 +238,11 @@ dialect_scores <- check_supported %>%
     # (Pr + Po) / (Pr + Po + Fr)
     max_score = (Pr + Po) / (Pr + Po + Fr)
   ) %>% 
-  mutate(check_type = toupper(check_type))
+  mutate(check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable")))
 ```
 
-
 ```{r}
-raw_long <- agg_scores %>% 
+raw_long_clean <- agg_scores %>% 
   select(-obsoletes, -obsoletedBy) %>% 
   left_join(run_results) %>% 
   filter(is.na(obsoletedBy)) %>% 
@@ -222,44 +251,47 @@ raw_long <- agg_scores %>%
     names_to = "check_type", 
     values_to = "score"
   ) %>%
-  mutate(check_type = toupper(gsub("score", "", check_type)))
+  mutate(
+    check_type = gsub("score", "", check_type),
+    check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))
+  ) %>%
+  filter(!is.na(score))
+set.seed(42)
 
-boxplot_stats <- raw_long %>%
+plot_sina_data <- raw_long_clean %>%
   group_by(dialect, check_type) %>%
-  summarise(
-    ymin  = min(score, na.rm = TRUE),
-    lower = quantile(score, 0.25, na.rm = TRUE),
-    middle= median(score, na.rm = TRUE),
-    upper = quantile(score, 0.75, na.rm = TRUE),
-    ymax  = max(score, na.rm = TRUE),
-    .groups = "drop"
-  )
+  slice_sample(n = 50000, replace = FALSE) %>%
+  ungroup()
 
-plot_fast_box <- boxplot_stats %>%
-  left_join(dialect_scores, by = c("dialect", "check_type")) %>%
-  mutate(check_type = factor(check_type, levels = c("FINDABLE", "ACCESSIBLE", "INTEROPERABLE", "REUSABLE")))
-```
+ggplot(plot_sina_data, aes(x = dialect, y = score)) +
+  geom_sina(
+    aes(color = dialect),
+    scale = "width",      
+    method = "density",   
+    maxwidth = 0.6,      
+    size = 0.4,          
+    alpha = 0.15          
+  ) +
 
-```{r}
-ggplot(plot_fast_box, aes(x = dialect)) +
   geom_boxplot(
-    aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax, fill = dialect),
-    stat = "identity", 
-    width = 0.5, 
-    median.linewidth = 0.75,
-    whisker.linewidth = 0.25,
-    box.linewidth = 0.1
+    width = 0.35,
+    color = "black",
+    outlier.shape = NA, 
+    alpha = 0,
+    linewidth = 0.4
   ) +
   geom_errorbar(
-    aes(ymin = max_score, ymax = max_score), 
+    data = dialect_scores,
+    aes(x = dialect, ymin = max_score, ymax = max_score), 
+    inherit.aes = FALSE,    # Prevents it from looking for 'color' or 'score' columns
     color = "black", 
     linetype = "dashed", 
     width = 0.6, 
     linewidth = 0.5
   ) +
   facet_grid(~ check_type) +
-  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +
-  scale_fill_manual(
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1.05)) +
+  scale_color_manual(
     values = c(
       "SOSO" = "#F2A900",  
       "ISO"  = "#634a36",  
@@ -272,15 +304,26 @@ ggplot(plot_fast_box, aes(x = dialect)) +
     panel.grid.minor = element_blank(),
     panel.grid.major.x = element_blank(),
     strip.background = element_rect(fill = "gray95"),
-    strip.text = element_text(face = "bold", size = 12)
+    strip.text = element_text(face = "bold", size = 12),
+    axis.text.x = element_text(face = "bold")
   ) +
   labs(
-    x = "FAIR Category", 
+    x = "Metadata Dialect", 
     y = "Score",
-    caption = "Dashed lines indicate maximum score possible."
+    title = "",
+    caption = "Point density reflects overall frequency across sample records. \n Dashed lines indicated maximum possible score."
   )
 ```
 
+Figure 2 shows a sinaplot of dataset-level quality scores by dialect across each FAIR dimension, along with the maximum possible score for each dialect in that dimension. This plot shows how dialect influences vary across the FAIR dimensions, and the relationship between actual scores and possible scores. For each dialect and FAIR dimension, the maximum possible score was calculated. Notably, this is not always 100% since some checks are not supported by every dialect. For example, SOSO currently has no accepted way to include provenenace information, of which there are 3 Reusable checks. EML has the highest overall possible score, followed by ISO, then SOSO. 
+
+Similar to the repository results, Findable shows a higher mean and tighter grouping than the other dimensions. In Accessible, SOSO has the highest median score, and also the tightest grouping around the mean, while EML has a very wide spread of values. EML scores much higher than both SOSO and ISO in Interoperable checks, and both EML and ISO score higher than SOSO in the Reusable checks. Note that the horizontal lines in the point data is expected, given that the points represent raw dataset scores, and there are mathematical limitations of the number of possible scores for a single dataset. 
+
+(Discussion)
+
+Dialect choice has the most significant impact on Interoperable and Reusable scores, given that these two dimensions have the largest differences in the maximum possible score between dialects. Based on this, metadata dialect choice is an important factor when considering the overall quality of a metadata record. However, variability of actual scores within each dialect, and the difference between median dialect scores and the maximum possible score, implies that most researchers/repositories do not use the full expressivity of any given dialect. Although there is a cap to the possible score in some dialects, extremely few datasets achieve the maximum possible score. This means that there is still considerable room to grow to improve metadata quality, regardless of dialect.
+
+Key point: Dialect matters, but how the dialect is used might matter more. Rich metadata can be written in any dialect - with some limitations.
 
 ```{r, eval = FALSE}
 check_results <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0")
@@ -373,7 +416,7 @@ ggplot(plot_ready, aes(x = mean_score, y = check_name)) +
 ggsave("checks-by-dialect.png", width = 13, height = 8, units = "in")
 ```
 
-## Fig 3: Time Effects
+### Fig 3: Time Effects
 
 Repository effects and high monthly variability generally dominate. Despite this, the trend that I/R is stubbornly flat through time is clear. Accessibility seems to increase through time.
 
@@ -454,7 +497,7 @@ ggplot() +
 ggsave("monthly-timeseries-anon.png", width = 8, height = 6, units = "in")
 ```
 
-## Fig 4: Curation Effects
+### Fig 4: Curation Effects
 
 Comparing the first and last versions of datasets via a cumulative mean of repository scores shows that curation can increase scores across all 4 dimensions, even when the scores of initial submissions remain low overall.
 
@@ -528,17 +571,17 @@ ggplot(data = arctic_mean, aes(x = ym, y = mean)) +
 ## Repository Policy Effects?
 
 ```{r}
-hydroshare <- agg_scores %>%
-  filter(datasource == "urn:node:HYDROSHARE") %>% 
+example_node <- agg_scores %>%
+  filter(datasource == "urn:node:EDI") %>% 
   mutate(dateUploaded = as.Date(dateUploaded)) %>% 
-  filter(dateUploaded > as.Date("2022-01-01")) %>% 
+  #filter(dateUploaded > as.Date("2022-01-01")) %>% 
   assign_sequence_id() %>% 
   get_first_last_versions() %>% 
   get_scores_monthly_state()
 ```
 
 ```{r}
-ggplot(hydroshare, aes(x = ym, y = mean, color = metric)) +
+ggplot(example_node, aes(x = ym, y = mean, color = metric)) +
   geom_line() +
   scale_color_manual(
     values = c(
