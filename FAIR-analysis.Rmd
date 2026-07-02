@@ -58,9 +58,12 @@ run_results <- open_dataset("/home/jclark/metadig-data/run-data-0.5.0") %>%
 
 ## Methods
 
+In addition to text from  [google doc](https://docs.google.com/document/d/1Se9ClS3y3rlRyEmO1-Fb8Flp6nHKiKKdIoxtYNT-DJc/edit?tab=t.0)
+...
+
 Analyzed documents are restricted to those from member nodes that have been harvested by DataONE on or after January 1, 2025. Additionally, the documents used are also neccesarily of a dialect that is supported by MetaDIG. The three supported dialects are Ecological Metadata Language (EML), ISO 19115 (ISO), and Science on Schema.org (SOSO). This sample consists of X total documents from Y nodes. In DataONE, datasets are versioned by identifier into an obsolesence chain. These chains are identified and given their own identifier to use in analysis where relevant. Except where explicitly noted, all analyses only include the most recent version of a dataset metadata document. 
 
-(should this go in Results?)
+[possibly move some of these details to results]
 During data processing, some anomalies in the check-level data were noted and investigated. As a result of this work, three checks were found to be producing errors consistently for one or more dialects. The "Resource title length" check was found to not account for all possible ISO configurations of the dataset title, and therefore was incorrectly failing when it should have passed. Also for ISO documents, the xpath used in the "Resource License Present" check was found to be too strict, and was not finding legigitimate and well structured uses of the schema. Finally, for SOSO documents, the "Entity checksum and algorithm are present" check was found to give many false positives - passing results when the information did not exist. Because of these errors, these three checks were excluded from the analysis and the calculation of all scores. This does alter the results, in that with fewer overall checks, the denominator is lower, so failing checks will lower scores correspondingly more than with the full suite. Additionally, datasets will not get credit that they would have recieved for passing these checks. Despite this, we still believe the overall trends in the results are unchanged without these 3 checks.
 
 ## Results
@@ -129,7 +132,7 @@ Metadata quality varied significantly by metric across the Y repositories. Repos
 (probably for Discussion section)
 The wide distribution of mean scores between repositories, especially in A/I/R show that differences in repositories themselves are important drivers of metadata quality. These differences are likely largely driven by varying standards and protocols used by each repository, including differences in dialect used, curation level, internal metadata standards, and metadata sharing/replication methods. (possible discussion about how metadata on the CN might not always capture the richness of metadata available on the MN, or even within the files themselves, eg: netCDF with embedded metadata that is not captured here).
 
-Key point: The repository matters.
+Key point: The repository itself matters - not all repos score the same.
 
 ```{r, eval = FALSE}
 repo_flowers <- node_scores %>%
@@ -256,11 +259,11 @@ raw_long_clean <- agg_scores %>%
     check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))
   ) %>%
   filter(!is.na(score))
-set.seed(42)
 
+set.seed(42)
 plot_sina_data <- raw_long_clean %>%
   group_by(dialect, check_type) %>%
-  slice_sample(n = 50000, replace = FALSE) %>%
+  #slice_sample(n = 50000, replace = FALSE) %>%
   ungroup()
 
 ggplot(plot_sina_data, aes(x = dialect, y = score)) +
@@ -278,7 +281,9 @@ ggplot(plot_sina_data, aes(x = dialect, y = score)) +
     color = "black",
     outlier.shape = NA, 
     alpha = 0,
-    linewidth = 0.4
+    linewidth = 0.4,
+    median.colour = "#a8161b",
+    median.linewidth = 2.5
   ) +
   geom_errorbar(
     data = dialect_scores,
@@ -317,11 +322,12 @@ ggplot(plot_sina_data, aes(x = dialect, y = score)) +
 
 Figure 2 shows a sinaplot of dataset-level quality scores by dialect across each FAIR dimension, along with the maximum possible score for each dialect in that dimension. This plot shows how dialect influences vary across the FAIR dimensions, and the relationship between actual scores and possible scores. For each dialect and FAIR dimension, the maximum possible score was calculated. Notably, this is not always 100% since some checks are not supported by every dialect. For example, SOSO currently has no accepted way to include provenenace information, of which there are 3 Reusable checks. EML has the highest overall possible score, followed by ISO, then SOSO. 
 
-Similar to the repository results, Findable shows a higher mean and tighter grouping than the other dimensions. In Accessible, SOSO has the highest median score, and also the tightest grouping around the mean, while EML has a very wide spread of values. EML scores much higher than both SOSO and ISO in Interoperable checks, and both EML and ISO score higher than SOSO in the Reusable checks. Note that the horizontal lines in the point data is expected, given that the points represent raw dataset scores, and there are mathematical limitations of the number of possible scores for a single dataset. 
+[Add some real values from the data in this para in parentheses]
+Similar to the repository results, Findable shows a higher mean than the other dimensions. In Accessible, SOSO has the highest median score. EML scores much higher than both SOSO and ISO in Interoperable checks, and both EML and ISO score higher than SOSO in the Reusable checks. Note that the horizontal lines in the point data is expected, given that the points represent raw dataset scores, and there are mathematical limitations of the number of possible scores for a single dataset. 
 
 (Discussion)
 
-Dialect choice has the most significant impact on Interoperable and Reusable scores, given that these two dimensions have the largest differences in the maximum possible score between dialects. Based on this, metadata dialect choice is an important factor when considering the overall quality of a metadata record. However, variability of actual scores within each dialect, and the difference between median dialect scores and the maximum possible score, implies that most researchers/repositories do not use the full expressivity of any given dialect. Although there is a cap to the possible score in some dialects, extremely few datasets achieve the maximum possible score. This means that there is still considerable room to grow to improve metadata quality, regardless of dialect.
+Dialect choice has the most significant impact on Interoperable and Reusable scores, since these two dimensions have the largest range in maximum possible score between dialects. Based on this alone, it is clear that metadata dialect choice is an important factor when considering the overall quality of a metadata record. However, variability of actual scores within each dialect is quite high. EML has a ~30 point difference between the 1st and 3rd quartile for A/I/R. Additionally, the difference between the median dialect score and the maximum possible score is quite high, >20, for every dialect and every dimension. This implies that most researchers/repositories do not use the full expressivity of any given dialect. Although there is a cap to the possible score in some dialects, extremely few datasets achieve the maximum possible score. This means that there is still considerable room to grow to improve metadata quality, regardless of dialect.
 
 Key point: Dialect matters, but how the dialect is used might matter more. Rich metadata can be written in any dialect - with some limitations.
 
@@ -346,7 +352,7 @@ check_error <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/check-error
   select(check_name, dialect, notes_controlled) %>% 
   filter(!dialect == "") %>% 
   distinct() %>% 
-  left_join(supported_dialects, by = c("check_name", "dialect")) %>%
+  left_join(select(check_supported, -notes_controlled), by = c("check_name", "dialect")) %>%
   mutate(notes_controlled = case_when(
     is.na(is_supported) ~ "not supported", 
     TRUE ~ notes_controlled 
@@ -359,8 +365,7 @@ check_sub_cat <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/fair-suit
 ```{r, eval = FALSE}
 
 plot_ready <- checks_calc %>%
-  left_join(check_error, by = join_by(check_name, dialect)) %>% 
-  left_join(check_sub_cat) %>% 
+  left_join(check_error) %>% 
   arrange(check_type, check_level, mean_score) %>%
   mutate(check_name = factor(check_name, levels = unique(check_name))) %>% 
   mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled)) %>% 
@@ -417,8 +422,6 @@ ggsave("checks-by-dialect.png", width = 13, height = 8, units = "in")
 ```
 
 ### Fig 3: Time Effects
-
-Repository effects and high monthly variability generally dominate. Despite this, the trend that I/R is stubbornly flat through time is clear. Accessibility seems to increase through time.
 
 ```{r}
 monthly_avg <- agg_scores %>% 
@@ -497,9 +500,14 @@ ggplot() +
 ggsave("monthly-timeseries-anon.png", width = 8, height = 6, units = "in")
 ```
 
-### Fig 4: Curation Effects
+Timeseries of a 3-month rolling average of mean scores by FAIR dimension for all DataONE repositories show results similar to those described in previous work. Findable and Accessible are increasing, slightly, through time, while Interoperable and Reusable stay fairly flat. Individual repository scores through time, as expected, are highly variable, both in long term trends and short term trends. Some repositories show no variability at all in either the long or short term. Their scores show on the timeseries as completely flat. Other repositories show extremely high short term variability month to month, with timeseries that look quite jagged. Finally, there are some repositories that show an increase in monthly scores through time, but most repositories' long term trends are fairly flat.
 
-Comparing the first and last versions of datasets via a cumulative mean of repository scores shows that curation can increase scores across all 4 dimensions, even when the scores of initial submissions remain low overall.
+(Discussion)
+High variability in trends between repositories 3-month rolling mean scores highlight what a large impact repository standards and policies have on metadata scores, showing similar trends as Figure 1. However, two major trends do emerge from this data. First, the effect of time on metadata scores shows that Findable and Accessible increase over time, while Interoperable and Reusable remain fairly flat. This is consistent with previous work [citations]. The second is that at the individual repository level, improvement through time is the exception, rather than the norm. 
+
+Key point: validation of previously known trends in FA vs IR, and that there isn't much change in metadata quality through time, overall
+
+### Fig 4: Curation Effects
 
 ```{r}
 arctic <- agg_scores %>% 
@@ -546,7 +554,7 @@ ggplot(data = arctic_mean, aes(x = ym, y = mean)) +
   facet_wrap(~metric, ncol = 2, scales = "free_x") +
   
   # Style configurations
-  scale_linetype_manual(values = c("first" = "dashed", "last" = "solid")) +
+  scale_linetype_manual(values = c("first" = "twodash", "last" = "solid")) +
   scale_color_viridis_d(option = "mako", begin = 0.3, end = 0.7) +
   scale_fill_viridis_d(option = "mako", begin = 0.3, end = 0.7) + 
   
@@ -567,29 +575,95 @@ ggplot(data = arctic_mean, aes(x = ym, y = mean)) +
     y = "Score (%)"
   )
 ```
+(some of this maybe in methods)
+The Arctic Data Center is one DataONE node which has a curation team, and strict metadata requirements that are set as a combination of internal policy, funder requirements, and collaborator requirements [not sure if we want to mention this, but there are some holdover standards as a result of our NCEI partnership]. The submission process to the Arctic Data Center starts when researchers submit their dataset and metadata via an online webform. This webform guides users through some minimum requirements, but does not automatically enforce every metadata requirement, for the simple reason that requirements differ slightly depending on data content. Since the Arctic Data Center is a long-tail repository publishing datasets from a huge variety of disciplines, it is impossible for the webform to automatically enforce requirements for all possible types of data that may be received. Because of this and other factors, initial submissions to the Arctic Data Center typically need metadata additions to meet Arctic Data Center requirements, which are made in collaboration between the curation team and the researchers themselves.
+
+In this analysis, we calculated the cumulative repository mean through time of initial versions of datasets and final versions of datasets (Figure 4). The Arctic Data Center is the successor to the previous National Science Foundation (NSF) funded repository for the Arctic sciences, and inherited all of the previous repository's datasets. These datasets are visible in the initial version line prior to 2016. Note there is no final version prior to 2016 because all of those datasets, written in the ISO dialect, were converted to EML in 2016, so the corresponding final versions are all included only in the cumulative mean after 2016. Initially on conversion to EML in 2016, I and R scores briefly decreased. Continuing updates of these datasets, however, along with repository policy changes (such as requiring structured attribute metadata), cause the final version scores to increase. 
+
+(Discussion)
+A comparison of the scores between initial and final versions shows first, unsurprisingly, that curation increases metadata quality. Second, the widening of the gap between initial and final versions, especially in A/I/R, shows how even when initial submissions are relatively flat through time, repository curation efforts can cause an increase in overall metadata quality. Finally, slight increases in initial scores through time, especially in Findable and Interoperable, show how researchers themselves are writing better metadata initially. [maybe something about software here as well?]
+
+Key points: curation increases scores, including through time. Researchers are writing better initial metadata (not all hope is lost)
+
 
 ## Repository Policy Effects?
+
+[I want one more success story plot here to show either repo policy effects or software changes. We have a couple of options. Below I've shown EDI, which has a huge increase in Accessible scores through time. I reached out to Colin Smith  and shown him the plot but not mentioned the paper, and asked if he knows of any changes made at EDI that might drive that increase. I also reached out to Lindsay to ask about Hydroshare updates (need to tease that out of the data somehow, since it is not obvious at the moment that they made any changes.) I don't want to use another ADC example really, but I did include a neat one related to policy and software changes. The date of that bar was obtained by looking through the git history in `arctic-data` and finding when we published the first version of the training manual.]
+
 
 ```{r}
 example_node <- agg_scores %>%
   filter(datasource == "urn:node:EDI") %>% 
   mutate(dateUploaded = as.Date(dateUploaded)) %>% 
-  #filter(dateUploaded > as.Date("2022-01-01")) %>% 
   assign_sequence_id() %>% 
-  get_first_last_versions() %>% 
   get_scores_monthly_state()
+
+ggplot(example_node, aes(x = ym, y = mean, color = metric)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(
+    values = c(
+      "f" = "#c70a61", 
+      "a" = "#ff582d", 
+      "i" = "#1a6379", 
+      "r" = "#60c5e4"
+    ),
+    labels = c(
+      "f" = "Findable",
+      "a" = "Accessible",
+      "i" = "Interoperable",
+      "r" = "Reusable"
+    )
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+  ) +
+  labs(
+    x = NULL,                       
+    y = "Score",
+    color = NULL,
+    title = "Environmental Data Intiative (EDI)",
+    caption = "Mean 'state of the repository' score via LOCF analysis."
+  )
+
 ```
 
 ```{r}
+example_node <- agg_scores %>%
+  filter(datasource == "urn:node:ARCTIC") %>% 
+  mutate(dateUploaded = as.Date(dateUploaded)) %>% 
+  assign_sequence_id() %>% 
+  get_scores_monthly_state()
+
 ggplot(example_node, aes(x = ym, y = mean, color = metric)) +
-  geom_line() +
+  geom_line(linewidth = 1) +
   scale_color_manual(
     values = c(
-      "f"      = "#c70a61", 
-      "a"    = "#ff582d", 
+      "f" = "#c70a61", 
+      "a" = "#ff582d", 
       "i" = "#1a6379", 
-      "r"      = "#60c5e4"
-    )) +
-  theme_bw()
+      "r" = "#60c5e4"
+    ),
+    labels = c(
+      "f" = "Findable",
+      "a" = "Accessible",
+      "i" = "Interoperable",
+      "r" = "Reusable"
+    )
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+  ) +
+  labs(
+    x = NULL,                       
+    y = "Score",
+    color = NULL,
+    title = "Arctic Data Center",
+    caption = "Mean 'state of the repository' score via LOCF analysis. \n Dashed line shows the start of using R to edit metadata, including the first additions of structured attribute metadata into EML."
+  ) +
+  geom_vline(xintercept = as.POSIXct("2017-05-30"), linetype="longdash",
+color = "dodgerblue4", size=0.5) 
+
 ```
 
