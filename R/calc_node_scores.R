@@ -54,44 +54,8 @@ get_node_scores_all_time <- function(data){
     
 }
 
-#' Calculate Monthly Mean FAIR Scores
-#'
-#' Aggregates assessment data into a chronological monthly timeline per node, and computes 
-#' means.
-#'
-#' @param data A data frame containing raw quality scores from `get_agg_data`.
-#'
-#' @return A long-format data frame showing monthly means.
-#'
-#' @importFrom lubridate year month
-#' @importFrom dplyr mutate filter arrange group_by summarise ungroup select %>%
-#' @importFrom tidyr pivot_longer
-#' @export
-get_scores_mean_ym <- function(data){
-    
-    cum_repo <- data %>% 
-        mutate(ym = as.Date(sprintf("%4s-%02d-01",
-                                    lubridate::year(dateUploaded), 
-                                    lubridate::month(dateUploaded)))) %>% 
-        filter(dateUploaded > as.Date("2000-01-01")) %>% 
-        arrange(ym) %>%
-        group_by(ym) %>%
-        summarise(num_mean = n(),
-                  f=mean(scoreFindable),
-                  a=mean(scoreAccessible),
-                  i=mean(scoreInteroperable),
-                  r=mean(scoreReusable), .groups = "keep") %>%
-        
-        ungroup() %>% 
-        select(ym, f, a, i, r, num_mean) %>% 
-        pivot_longer(cols = c(f, a, i, r), names_to = "metric", values_to = "score") %>% 
-        mutate(score_100 = score*100)
-    
-    return(cum_repo)
-    
-}
 
-get_scores_rolling_mean_ym <- function(data){
+get_scores_cum_mean_ym <- function(data){
     
     scores <- data %>% 
         filter(dateUploaded > as.Date("2000-01-01")) %>% 
@@ -99,16 +63,16 @@ get_scores_rolling_mean_ym <- function(data){
         mutate(scoreF = scoreFindable * 100.0) %>%
         mutate(scoreA = scoreAccessible * 100.0) %>%
         mutate(scoreI = scoreInteroperable * 100.0) %>%
-        mutate(scoreR = scoreReusable * 100.0) %>% 
-        mutate(sequenceId = if_else(is.na(sequenceId), pid, sequenceId))
+        mutate(scoreR = scoreReusable * 100.0) #%>% 
+        #mutate(sequenceId = if_else(is.na(sequenceId), pid, sequenceId))
     
     score_cumulative <- scores %>%
-        arrange(ym, sequenceId, dateUploaded) %>%
-        group_by(ym, sequenceId) %>%
-        top_n(1, dateUploaded) %>% 
+        #arrange(ym, sequenceId, dateUploaded) %>%
+        #group_by(ym, sequenceId) %>%
+        #top_n(1, dateUploaded) %>% 
         arrange(ym) %>%
         group_by(ym) %>% 
-        summarise(f=mean(scoreF), a=mean(scoreA), i=mean(scoreI), r=mean(scoreR), num_mean = n(), .groups = "drop") %>%
+        summarise(f=mean(scoreF, na.rm = T), a=mean(scoreA, na.rm = T), i=mean(scoreI, na.rm = T), r=mean(scoreR, na.rm = T), num_mean = n(), .groups = "drop") %>%
         mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r), num_cum_mean = n())
     
     score_cumulative <- score_cumulative %>% 
