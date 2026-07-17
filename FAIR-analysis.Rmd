@@ -14,17 +14,19 @@ library(dplyr)
 library(tidyr)
 library(xml2)
 library(forcats)
+library(lubridate)
 library(here)
 library(stringr)
 library(ggforce)
 library(ggridges)
 library(ggdist)
 library(zoo)
+library(patchwork)
 devtools::load_all(here("."))
 ```
 
 
-```{r}
+```{r open-clean-data}
 node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/refs/heads/main/data/node_status.csv") %>% 
   filter(as.Date(cn.latest) > as.Date("2025-01-01") | node_id == "urn:node:KNB") %>% 
   select(node_id, cn.count, cn.latest) %>% 
@@ -32,16 +34,15 @@ node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/re
 
 nodes_to_analyse <- node_status$node_id
 
-#data <- get_agg_data() %>% filter(datasource %in% node_status$node_id)
-```
-
-```{r}
 errored_checks <- c("Resource License Present",
                     "Entity checksum and algorithm are present.",
                     "Resource title length is sufficient",
                     "Access Control Rules")
 
-agg_scores <- calc_aggregate_scores("/home/jclark/metadig-data/check-data-0.5.0", "/home/jclark/metadig-data/run-data-0.5.0", errored_checks) %>% 
+agg_scores <- calc_aggregate_scores(
+                "/home/jclark/metadig-data/check-data-0.5.0",
+                "/home/jclark/metadig-data/run-data-0.5.0",
+                errored_checks) %>% 
   ungroup() %>% 
   filter(datasource %in% nodes_to_analyse)
 
@@ -52,9 +53,23 @@ run_results <- open_dataset("/home/jclark/metadig-data/run-data-0.5.0") %>%
   mutate(dialect = case_when(
     grepl("ecoinformatics", format_id) ~ "EML",
     grepl("isotc211", format_id) ~ "ISO",
-    grepl("schema", format_id) ~ "SOSO"
-  )) %>% 
+    grepl("schema", format_id) ~ "SOSO")) %>% 
   ungroup()
+
+raw_long_clean <- agg_scores %>% 
+  select(-obsoletes, -obsoletedBy) %>% 
+  left_join(run_results) %>% 
+  filter(is.na(obsoletedBy)) %>% 
+  pivot_longer(
+    cols = c(scoreFindable, scoreAccessible, scoreInteroperable, scoreReusable), 
+    names_to = "check_type", 
+    values_to = "score"
+  ) %>%
+  mutate(
+    check_type = gsub("score", "", check_type),
+    check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))
+  ) %>%
+  filter(!is.na(score))
 ```
 
 ## Methods
@@ -69,23 +84,82 @@ During data processing, some anomalies in the check-level data were noted and in
 
 ## Results
 
+```{r dataone}
+
+dialect_monthly <- raw_long_clean %>% 
+  mutate(dateUploaded = as.Date(dateUploaded)) %>% 
+  filter(dateUploaded > as.Date("2005-01-01")) %>% 
+  mutate(month_ym = floor_date(dateUploaded, "month")) %>%
+  distinct(pid, month_ym, dialect) %>% 
+  count(month_ym, dialect) %>%
+  complete(month_ym, dialect, fill = list(n = 0)) %>%
+  group_by(dialect) %>%
+  arrange(month_ym) %>%
+  mutate(cum_n = cumsum(n)) %>%
+  ungroup() %>%
+  group_by(month_ym) %>%
+  mutate(total_cum_n = sum(cum_n), cum_prop = cum_n / total_cum_n) %>%
+  ungroup() %>%
+  mutate(cum_prop = replace_na(cum_prop, 0))
+
+total_monthly <- dialect_monthly %>%
+  distinct(month_ym, total_cum_n)
+
+
+p2 <- ggplot(dialect_monthly, aes(x = month_ym, y = cum_prop, fill = dialect)) +
+  geom_area(alpha = 0.95) + 
+  scale_y_continuous(labels = scales::percent_format(), expand = c(0,0)) +
+  scale_x_date(expand = c(0,0)) + 
+  scale_fill_manual(
+    values = c("SOSO" = "#F2A900", "ISO"  = "#634a36", "EML"  = "#2B90E8")) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()) +
+  labs(
+    x = "Date", 
+    y = "Cumulative \nShare") +
+  xlim(as.Date("2005-01-01"), as.Date("2026-01-01"))
+
+p3 <- ggplot(total_monthly, aes(x = month_ym, y = total_cum_n)) +
+  geom_area(fill = "gray60", alpha = 0.9) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = scales::comma_format()) +
+  scale_x_date(expand = c(0,0)) +
+  theme_bw() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()) +
+  labs(y = "Total \nDatasets") +
+  xlim(as.Date("2005-01-01"), as.Date("2026-01-01"))
+
+final_plot <- p3 / p2 +
+  plot_layout(heights = c(1.5, 1.5)) +
+  plot_annotation(tag_levels = 'a')
+
+final_plot
+
+ggsave("dataone-datasets.png", width = 7, height = 5, units = "in")
+
+```
+
+
 ### 1. Repository Effects
 
-
-```{r}
+```{r mean-score-dist-plot}
 node_scores <- agg_scores %>% 
   filter(is.na(obsoletedBy)) %>% 
   get_node_scores_all_time()
-```
 
-```{r}
 ridge_data <- node_scores %>%
-  mutate(
-    score_100 = score * 100,
-    label = factor(label, levels = rev(c("Findable", "Accessible", "Interoperable", "Reusable")))
-  )
+  mutate(score_100 = score * 100,
+    label = factor(label, levels = rev(c("Findable", "Accessible", "Interoperable", "Reusable"))))
 
-ggplot(ridge_data, aes(x = score_100, y = label, fill = label)) +
+ggplot(ridge_data, aes(x = score, y = label, fill = label)) +
   geom_density_ridges(scale = 1.5, alpha = 0.85, color = "white", linewidth = 0.5) +
   scale_fill_manual(
     values = c(
@@ -95,7 +169,7 @@ ggplot(ridge_data, aes(x = score_100, y = label, fill = label)) +
       "Reusable"      = "#FFB000"
     )
   ) +
-  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100)) +
+  scale_x_continuous(labels = scales::percent_format(), limits = c(0, 1), breaks = c(0, .25, .50, .75, 1)) +
   theme_minimal() +
   theme(
     legend.position = "none",
@@ -108,11 +182,13 @@ ggplot(ridge_data, aes(x = score_100, y = label, fill = label)) +
     x = "Score",
     title = ""
   )
+
+ggsave("mean-score-dist.png", height = 5, width = 6, units = "in")
 ```
 
 Figure 1: Distribution of mean metadata completeness across 40 DataONE member repositories. Repository averages are calculated from individual dataset scores.
 
-```{r}
+```{r inline-helper}
 get_metric <- function(data, metric, fn) {
   if (fn == "mean") {
     metric <- round(filter(data, label == metric) %>% pull(score_100) %>% mean(na.rm = TRUE), 2)
@@ -139,7 +215,7 @@ Key point: The repository itself matters - not all repos score the same.
 
 ### Fig 2: Dialect Effects
 
-```{r}
+```{r calc-max-score}
 fair_checks <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0") %>% 
   select(check_id, check_name, check_type, check_level) %>% 
   distinct() %>% 
@@ -177,131 +253,34 @@ dialect_scores <- check_supported %>%
   mutate(check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable")))
 ```
 
-```{r}
-raw_long_clean <- agg_scores %>% 
-  select(-obsoletes, -obsoletedBy) %>% 
-  left_join(run_results) %>% 
-  filter(is.na(obsoletedBy)) %>% 
-  pivot_longer(
-    cols = c(scoreFindable, scoreAccessible, scoreInteroperable, scoreReusable), 
-    names_to = "check_type", 
-    values_to = "score"
-  ) %>%
-  mutate(
-    check_type = gsub("score", "", check_type),
-    check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))
-  ) %>%
-  filter(!is.na(score))
+```{r dialect-plots}
 
-dialect_scores_num <- dialect_scores %>%
-  mutate(
-    check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable")),
-    max_score = if_else(max_score > 1, max_score / 100, max_score),
-    dialect_num = as.numeric(factor(dialect, levels = c("EML", "ISO", "SOSO")))
-  )
-
-set.seed(42)
-plot_hybrid_data <- raw_long_clean %>%
-  group_by(dialect, check_type) %>%
-  slice_sample(n = 6000, replace = FALSE) %>% 
-  ungroup() %>%
-  mutate(dialect_num = as.numeric(factor(dialect, levels = c("EML", "ISO", "SOSO"))))
-
-ggplot(plot_hybrid_data, aes(y = score)) +
-  geom_errorbar(
-    data = dialect_scores_num,
-    aes(x = dialect_num, ymin = max_score, ymax = max_score), 
-    inherit.aes = FALSE, 
-    color = "gray", 
-    width = 0.5, 
-    linewidth = 2.5,
-    alpha = 0.75
-  ) +
-  ggforce::geom_sina(
-    aes(x = dialect_num - 0.12, color = dialect, group = dialect, y = jitter(score, amount = 0.012)),
-    scale = "width",
-    method = "density",
-    maxwidth = 0.40,       
-    size = 0.3,
-    alpha = 0.12           
-  ) +
-  geom_boxplot(
-    aes(x = dialect_num + 0.26, y = score, group = dialect, fill = dialect),
-    width = 0.2,
-    color = "black",
-    outlier.shape = NA, 
-    alpha = 0.2,           
-    linewidth = 0.5,
-    #median.colour = "#a8161b", 
-    #median.linewidth = 2
-  ) +
-  facet_grid(~ check_type) +
-  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1.05)) +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("SOSO", "ISO", "EML")) +
-  scale_color_manual(values = c("SOSO" = "#F2A900", "ISO"  = "#634a36", "EML"  = "#008080")) +
-  scale_fill_manual(values = c("SOSO" = "#F2A900", "ISO"  = "#634a36", "EML"  = "#008080")) +
-  theme_bw() +
-  theme(
-    legend.position = "none", 
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    strip.background = element_rect(fill = "gray95"),
-    strip.text = element_text(face = "bold", size = 12),
-    axis.text.x = element_text(face = "bold")
-  ) +
-  labs(
-    x = "Metadata Dialect", 
-    y = "Score",
-  )
-```
-Figure 2: Dialect effects on dataset FAIR completeness score. Points show raw dataset-level score frequencies as a sina plot, with an additional 1% jitter in the y-axis. Boxplots reflect summary statistics, gray lines indicate the maximum possible score.
-
---DELETE--
-```{r}
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(ggridges) # CRITICAL: Provides geom_density_ridges
-
-# 1. Data Prep Pipeline (No subsampling needed for ggridges)
-raw_long_clean <- agg_scores %>% 
-  select(-obsoletes, -obsoletedBy) %>% 
-  left_join(run_results) %>% 
-  filter(is.na(obsoletedBy)) %>% 
-  pivot_longer(
-    cols = c(scoreFindable, scoreAccessible, scoreInteroperable, scoreReusable), 
-    names_to = "check_type", 
-    values_to = "score"
-  ) %>%
-  mutate(
-    check_type = gsub("score", "", check_type),
-    check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))
-  ) %>%
-  filter(!is.na(score))
 
 ggplot(raw_long_clean, aes(x = score, y = dialect, fill = dialect)) +
-  
-  # THE RIDGES
-  geom_density_ridges(
-    alpha = 0.7, 
-    scale = 2,          # Controls the overlap height (higher = more overlap)
-    color = "white",      # Adds a crisp white stroke around overlapping ridges
-    linewidth = 0.5,
-    rel_min_height = 0.01 # Trims the infinitely flat tails off the edges of the density curves
+  geom_errorbar(
+    data = dialect_scores,
+    aes(xmin = max_score, xmax = max_score, y = dialect),
+    inherit.aes = FALSE,
+    color = "#974665",
+    width = 0.9,
+    linewidth = 0.75,
+    alpha = 0.75
   ) +
-  
-  # Global Styling & Structure
+  geom_density_ridges(
+    alpha = 0.9, 
+    scale = 2,         
+    color = "black",     
+    linewidth = 0.1,
+    rel_min_height = 0.01 
+  ) +
   facet_grid(~ check_type) +
   scale_x_continuous(labels = scales::percent_format(), limits = c(0, 1.05)) +
-  
-  # Color Management
-  scale_fill_manual(values = c("SOSO" = "#F2A900", "ISO"  = "#634a36", "EML"  = "#008080")) +
-  
+  scale_fill_manual(values = c("SOSO" = "#F2A900", "ISO"  = "#634a36", "EML"  = "#2B90E8")) +
   theme_bw() +
   theme(
     legend.position = "none", 
     panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_blank(), # Removed horizontal gridlines so they don't slice through the ridges
+    panel.grid.major.y = element_blank(),
     strip.background = element_rect(fill = "gray95"),
   ) +
   labs(
@@ -310,8 +289,11 @@ ggplot(raw_long_clean, aes(x = score, y = dialect, fill = dialect)) +
     #caption = "Density distributions of dataset completeness scores."
   ) +
   coord_flip()
+
+ggsave("dialect-effects.png", width = 7, height = 6, units = "in")
 ```
---DELETE--
+
+Figure 2: Distribution of dataset-level score frequencies across metadata dialects and FAIR dimensions. Solid red lines show the maximum possible score for each dialect/dimension.
 
 Figure 2 shows a sinaplot of dataset-level quality scores by dialect across each FAIR dimension, along with the maximum possible score for each dialect in that dimension. This plot shows how dialect influences vary across the FAIR dimensions, and the relationship between actual scores and possible scores. For each dialect and FAIR dimension, the maximum possible score was calculated. Notably, this is not always 100% since some checks are not supported by every dialect. For example, SOSO currently has no accepted way to include provenenace information, of which there are 3 Reusable checks. EML has the highest overall possible score, followed by ISO, then SOSO. 
 
@@ -323,96 +305,6 @@ Similar to the repository results, Findable shows a higher mean than the other d
 Dialect choice has the most significant impact on Interoperable and Reusable scores, since these two dimensions have the largest range in maximum possible score between dialects. Based on this alone, it is clear that metadata dialect choice is an important factor when considering the overall quality of a metadata record. However, variability of actual scores within each dialect is quite high. EML has a ~30 point difference between the 1st and 3rd quartile for A/I/R. Additionally, the difference between the median dialect score and the maximum possible score is quite high, >20, for every dialect and every dimension. This implies that most researchers/repositories do not use the full expressivity of any given dialect. Although there is a cap to the possible score in some dialects, extremely few datasets achieve the maximum possible score. This means that there is still considerable room to grow to improve metadata quality, regardless of dialect.
 
 Key point: Dialect matters, but how the dialect is used might matter more. Rich metadata can be written in any dialect - with some limitations.
-
-```{r, eval = FALSE}
-check_results <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0")
-
-checks_calc <- check_results %>% 
-  inner_join(run_results) %>% 
-  filter(is.na(obsoletedBy)) %>% 
-  filter(origin_mn %in% node_status$node_id) %>% 
-  mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>%
-  filter(check_status != "ERROR") %>% 
-  group_by(check_name, dialect, check_type, check_level) %>%
-  summarise(
-    total_runs = n(),
-    mean_score = mean(check_status == "SUCCESS", na.rm = TRUE) * 100,
-    .groups = "drop"
-  ) %>%
-  collect()
-
-check_error <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/check-error-fail-reasons-summary.csv") %>% 
-  select(check_name, dialect, notes_controlled) %>% 
-  filter(!dialect == "") %>% 
-  distinct() %>% 
-  left_join(select(check_supported, -notes_controlled), by = c("check_name", "dialect")) %>%
-  mutate(notes_controlled = case_when(
-    is.na(is_supported) ~ "not supported", 
-    TRUE ~ notes_controlled 
-  )) %>%
-  select(-is_supported)
-
-check_sub_cat <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/fair-suite-categories.csv")
-```
-
-```{r, eval = FALSE}
-
-plot_ready <- checks_calc %>%
-  left_join(check_error) %>% 
-  arrange(check_type, check_level, mean_score) %>%
-  mutate(check_name = factor(check_name, levels = unique(check_name))) %>% 
-  mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled)) %>% 
-  mutate(check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
-  filter(check_level != "INFO")
-
-ggplot(plot_ready, aes(x = mean_score, y = check_name)) +
-  geom_tile(
-    aes(fill = check_level), 
-    width = Inf, 
-    height = 1, 
-    alpha = 0.15, 
-    color = "white",
-  ) +
-  geom_point(
-    aes(shape = notes_controlled), 
-    size = 3.8, 
-    color = "black", 
-    position = position_jitter(width = 0, height = 0.15, seed = 42)
-  ) +
-  geom_point(
-    aes(color = dialect, shape = notes_controlled), 
-    size = 3, 
-    position = position_jitter(width = 0, height = 0.15, seed = 42)
-  ) +
-  facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
-  scale_shape_manual(
-    values = c(
-      "not supported" = 1,
-      "broken" = 4),
-    na.value = 16,
-    breaks = c("not supported", "broken")
-  ) +
-  theme_bw() +
-  theme(
-    legend.position = "bottom",
-    legend.box = "vertical",
-    panel.grid.minor = element_blank(),
-    panel.grid.major.y = element_blank(),
-    strip.background = element_rect(fill = "gray95"),
-    strip.text = element_text(face = "bold", size = 11)
-  ) +
-  labs(x = "", y = "", shape = "") +
-  scale_color_manual(
-    values = c(
-      "SOSO"  = "#F2A900",  
-      "ISO"  = "#4A3728",  
-      "EML" = "#2B90E8"
-    )
-  ) +
-  scale_fill_brewer(palette = "Greys")
-
-ggsave("checks-by-dialect.png", width = 13, height = 8, units = "in")
-```
 
 ### Fig 3: Time Effects
 
@@ -432,7 +324,7 @@ monthly_avg_smoothed <- monthly_avg %>%
   group_by(datasource, metric) %>%
   filter(n() > 6) %>%
   mutate(
-    # 6-month rolling window
+    # 3 month rolling window
     mean_score = rollmean(mean_score, k = 3, fill = "extend"),
     p25        = rollmean(p25, k = 3, fill = "extend"),
     p75        = rollmean(p75, k = 3, fill = "extend")
@@ -445,108 +337,39 @@ global_mean_smoothed <- monthly_avg %>%
   summarise(global_avg = mean(mean_score, na.rm = TRUE), .groups = "drop") %>%
   arrange(metric, ym) %>%
   group_by(metric) %>%
-  mutate(
-    smooth_mean = rollmean(global_avg, k = 3, fill = "extend")
-  ) %>%
+  mutate(smooth_mean = rollmean(global_avg, k = 3, fill = "extend")) %>%
   ungroup()
 
-dialect_monthly <- raw_long_clean %>% 
-  mutate(dateUploaded = as.Date(dateUploaded)) %>% 
-  filter(dateUploaded > as.Date("2005-01-01")) %>% 
-  mutate(month_ym = floor_date(dateUploaded, "month")) %>%
-  distinct(pid, month_ym, dialect) %>% 
-  count(month_ym, dialect) %>%
-  tidyr::complete(month_ym, dialect, fill = list(n = 0)) %>%
-  group_by(dialect) %>%
-  arrange(month_ym) %>%
-  mutate(cum_n = cumsum(n)) %>%
-  ungroup() %>%
-  group_by(month_ym) %>%
-  mutate(
-    total_cum_n = sum(cum_n),
-    cum_prop = cum_n / total_cum_n
-  ) %>%
-  ungroup() %>%
-  mutate(cum_prop = replace_na(cum_prop, 0))
-
-total_monthly <- dialect_monthly %>%
-  distinct(month_ym, total_cum_n)
 
 p1 <- ggplot() +
   geom_line(
     data = monthly_avg_smoothed,
-    aes(x = ym, y = mean_score, color = datasource, group = datasource),
+    aes(x = ym, y = mean_score/100, color = datasource, group = datasource),
     alpha = 0.25,
-    linewidth = 0.4
-  ) +
+    linewidth = 0.4) +
   geom_line(
     data = global_mean_smoothed,
-    aes(x = ym, y = smooth_mean),
+    aes(x = ym, y = smooth_mean/100),
     color = "black",
-    linewidth = 1.3
-  ) +
+    linewidth = 1.3) +
   facet_wrap(~ metric, ncol = 1) +
   scale_color_viridis_d(option = "mako") + 
-  scale_y_continuous(limits = c(0, 100)) +
+  scale_y_continuous(labels = scales::percent_format()) +
   theme_bw() +
   theme(
     legend.position = "none",
     strip.background = element_rect(fill = "gray95"),
     strip.text = element_text(face = "bold", size = 12),
     panel.grid.minor = element_blank(),
-    axis.title.x = element_blank(),
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank()
-  ) +
-  labs(y = "Score (%)") +
+    axis.title.x = element_blank()) +
+  labs(y = "Score") +
   xlim(as.Date("2005-01-01"), as.Date("2026-01-01"))
 
-p2 <- ggplot(dialect_monthly, aes(x = month_ym, y = cum_prop, fill = dialect)) +
-  geom_area(alpha = 0.95) + 
-  scale_y_continuous(labels = scales::percent_format(), expand = c(0,0)) +
-  scale_x_date(expand = c(0,0)) + 
-  scale_fill_manual(
-    values = c("SOSO" = "#F2A900", "ISO"  = "#634a36", "EML"  = "#2B90E8")
-  ) +
-  theme_bw() +
-  theme(
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank()
-  ) +
-  labs(
-    x = "Date", 
-    y = "Cumulative \nShare"
-  ) +
-  xlim(as.Date("2005-01-01"), as.Date("2026-01-01"))
-
-p3 <- ggplot(total_monthly, aes(x = month_ym, y = total_cum_n)) +
-  geom_area(fill = "gray60", alpha = 0.9) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), labels = scales::comma_format()) +
-  scale_x_date(expand = c(0,0)) +
-  theme_bw() +
-  theme(
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    axis.title.x = element_blank(),
-    axis.text.x = element_blank(),
-    axis.ticks.x = element_blank()
-  ) +
-  labs(
-    y = "Cumulative \nDatasets"
-  ) +
-  xlim(as.Date("2005-01-01"), as.Date("2026-01-01"))
-
-final_plot <- p1 / p3 / p2 + 
-  plot_layout(heights = c(10, 1.5, 1.5))
-
-final_plot
-#plot_annotation(
-#  caption = "Solid Black Line: Overall Mean (3-month running avg). Background lines: Individual repository means.\nBottom #panel: Relative distribution of metadata dialects over time."
-
-ggsave("monthly-timeseries-anon.png", width = 8, height = 6, units = "in")
+p1
+ggsave("monthly-timeseries-anon.png", width = 5, height = 8, units = "in")
 ```
+
+Figure 3: Panel A: Timeseries of mean monthly scores with a 3 month running mean across the four FAIR dimensions. Solid black line is the overall DataONE mean. Lighter lines are individual repository timeseries. Panel B: Cumulative number of datasets across DataONE. Panel C: Cumulative share of datasets by dialect across DataONE. 
 
 Timeseries of a 3-month rolling average of mean scores by FAIR dimension for all DataONE repositories show results similar to those described in previous work. Findable and Accessible are increasing, slightly, through time, while Interoperable and Reusable stay fairly flat. Individual repository scores through time, as expected, are highly variable, both in long term trends and short term trends. Some repositories show no variability at all in either the long or short term. Their scores show on the timeseries as completely flat. Other repositories show extremely high short term variability month to month, with timeseries that look quite jagged. Finally, there are some repositories that show an increase in monthly scores through time, but most repositories' long term trends are fairly flat.
 
@@ -557,55 +380,36 @@ Key point: validation of previously known trends in FA vs IR, and that there isn
 
 ### Fig 4: Curation Effects
 
-```{r}
+```{r curation-plot}
 arctic <- agg_scores %>% 
   filter(datasource == "urn:node:ARCTIC")
 data_seq <- assign_sequence_id(arctic) 
 data_ver <- get_first_last_versions(data_seq)
 data_ver <- data_ver %>% 
   filter(version_position != "only_version")
-```
-
-```{r}
 
 arctic_mean <- data_ver %>% 
   group_by(version_position) %>% 
-  group_modify(~ get_scores_rolling_mean_ym(.x)) %>% 
+  group_modify(~ get_scores_cum_mean_ym(.x)) %>% 
   ungroup()
 
-target_ribbon <- arctic_mean %>%
-  select(ym, metric, version_position, mean) %>% 
-  pivot_wider(
-    id_cols = c(ym, metric), 
-    names_from = version_position,
-    values_from = mean
-  ) %>% 
-  group_by(metric) %>%
-  arrange(ym) %>%
-  fill(first, last, .direction = "downup") %>% 
-  ungroup()
-
-ggplot(data = arctic_mean, aes(x = ym, y = mean)) +
-  #geom_ribbon(
-  #  data = target_ribbon,
-  #  aes(x = ym, ymin = first, ymax = last, fill = metric),
-  #  inherit.aes = FALSE, 
-  #  alpha = 0.20
-  #) +
+ggplot(data = arctic_mean, aes(x = ym, y = mean/100)) +
   geom_line(
     aes(linetype = version_position, color = metric), 
     linewidth = 0.8,
-    alpha = 0.9
-  ) +
-  
-  # Clean faceting matrix
+    alpha = 0.9) +
   facet_wrap(~metric, ncol = 2, scales = "free_x") +
-  
-  # Style configurations
   scale_linetype_manual(values = c("first" = "twodash", "last" = "solid")) +
-  scale_color_viridis_d(option = "mako", begin = 0.3, end = 0.7) +
+  scale_color_manual(
+    values = c(
+      "Findable"      = "#785EF0", 
+      "Accessible"    = "#DC267F", 
+      "Interoperable" = "#FE6100", 
+      "Reusable"      = "#FFB000"
+    )
+  ) +
+  scale_y_continuous(labels = scales::percent_format()) +
   scale_fill_viridis_d(option = "mako", begin = 0.3, end = 0.7) + 
-  
   theme_bw() +
   theme(
     legend.position = "bottom",
@@ -614,15 +418,18 @@ ggplot(data = arctic_mean, aes(x = ym, y = mean)) +
     strip.text = element_text(face = "bold", size = 11),
     panel.grid.minor = element_blank()
   ) +
-  # Hide color/fill legends so ONLY the Linetype (Version) legend shows at the bottom
   guides(color = "none", fill = "none") +
   labs(
-    title = "Curation Effects on FAIR at the Arctic Data Center",
-    linetype = "Version Position",
+    title = "",
+    linetype = "Version",
     x = NULL,
-    y = "Score (%)"
+    y = "Score"
   )
+
+ggsave("curation-effects.png", width = 6, height = 5, units = "in")
 ```
+Figure 4: Timeseries of cumulative mean dataset scores across the four FAIR dimensions for the Arctic Data Center repository. Dashed lines show the scores of only first submitted versions of a dataset, solid lines show the scores of only final versions of the same datasets.
+
 (some of this maybe in methods)
 The Arctic Data Center is one DataONE node which has a curation team, and strict metadata requirements that are set as a combination of internal policy, funder requirements, and collaborator requirements [not sure if we want to mention this, but there are some holdover standards as a result of our NCEI partnership]. The submission process to the Arctic Data Center starts when researchers submit their dataset and metadata via an online webform. This webform guides users through some minimum requirements, but does not automatically enforce every metadata requirement, for the simple reason that requirements differ slightly depending on data content. Since the Arctic Data Center is a long-tail repository publishing datasets from a huge variety of disciplines, it is impossible for the webform to automatically enforce requirements for all possible types of data that may be received. Because of this and other factors, initial submissions to the Arctic Data Center typically need metadata additions to meet Arctic Data Center requirements, which are made in collaboration between the curation team and the researchers themselves.
 
@@ -634,84 +441,74 @@ A comparison of the scores between initial and final versions shows first, unsur
 Key points: curation increases scores, including through time. Researchers are writing better initial metadata (not all hope is lost)
 
 
-## Repository Policy Effects?
-
-[I want one more success story plot here to show either repo policy effects or software changes. We have a couple of options. Below I've shown EDI, which has a huge increase in Accessible scores through time. I reached out to Colin Smith  and shown him the plot but not mentioned the paper, and asked if he knows of any changes made at EDI that might drive that increase. He said "Yes, we did implement policy + tooling changes over this period that should affect the listed checks. The big ones were registering with ROR, Re3data, GRID, FAIRsharing, and adding the related content to EML published by EDI". I also reached out to Lindsay to ask about Hydroshare updates (need to tease that out of the data somehow, since it is not obvious at the moment that they made any changes.) I don't want to use another ADC example really, but I did include a neat one related to policy and software changes. The date of that bar was obtained by looking through the git history in `arctic-data` and finding when we published the first version of the training manual.]
-
+## Figure 5: Repository Policy Effects
 
 ```{r}
-example_node <- agg_scores %>%
-  filter(datasource == "urn:node:EDI") %>% 
-  mutate(dateUploaded = as.Date(dateUploaded)) %>% 
-  assign_sequence_id() %>% 
-  get_scores_monthly_state()
+node_list <- c("urn:node:EDI", "urn:node:LTER", "urn:node:ARCTIC")
 
-ggplot(example_node, aes(x = ym, y = mean, color = metric)) +
+node_states <- agg_scores %>%
+  filter(datasource %in% node_list) %>%
+  mutate(dateUploaded = as.Date(dateUploaded)) %>%
+  group_by(datasource) %>%
+  group_modify(~ {
+    .x %>%
+      assign_sequence_id() %>%
+      get_scores_monthly_state()
+  }) %>%
+  ungroup() %>% 
+  mutate(datasource = case_when(
+      datasource == "urn:node:EDI" ~ "Environmental Data Initiative",
+      datasource == "urn:node:LTER" ~ "Long Term Ecological Research",
+      datasource == "urn:node:ARCTIC" ~ "Arctic Data Center")) %>% 
+  mutate(metric = factor(metric, levels = rev(c("f", "a", "i", "r"))))
+
+vline_data <- data.frame(
+  datasource = c("Environmental Data Initiative", "Long Term Ecological Research", "Arctic Data Center"),
+  target_date = as.Date(c("2021-10-01", "2015-01-01", "2017-05-30"))
+)
+
+ggplot(node_states, aes(x = ym, y = mean/100, color = metric)) +
+  geom_vline(
+    data = vline_data, 
+    aes(xintercept = target_date), 
+    linetype = "dashed", 
+    color = "black", 
+    linewidth = 0.5) +
   geom_line(linewidth = 1) +
   scale_color_manual(
+    breaks = c("f", "a", "i", "r"),
     values = c(
       "f" = "#785EF0", 
       "a" = "#DC267F", 
       "i" = "#FE6100", 
-      "r" = "#FFB000"
-    ),
+      "r" = "#FFB000"),
     labels = c(
       "f" = "Findable",
       "a" = "Accessible",
       "i" = "Interoperable",
-      "r" = "Reusable"
-    )
-  ) +
+      "r" = "Reusable")) +
+  facet_wrap(~datasource, scales = "free_x", nrow = 1) +
+  scale_y_continuous(labels = scales::percent_format()) +
   theme_bw() +
   theme(
     legend.position = "bottom",
-  ) +
+    legend.box = "horizontal",
+    strip.background = element_rect(fill = "gray95"),
+    strip.text = element_text(face = "bold", size = 11),
+    panel.grid.minor = element_blank()) +
   labs(
     x = NULL,                       
     y = "Score",
     color = NULL,
-    title = "Environmental Data Intiative (EDI)",
-    caption = "Mean 'state of the repository' score via LOCF analysis."
-  )
+    title = NULL)
 
+ggsave("policy-effects.png", width = 10, height = 4, units = "in")
 ```
 
-```{r}
-example_node <- agg_scores %>%
-  filter(datasource == "urn:node:ARCTIC") %>% 
-  mutate(dateUploaded = as.Date(dateUploaded)) %>% 
-  assign_sequence_id() %>% 
-  get_scores_monthly_state()
+EDI: which has a huge increase in Accessible scores through time. I reached out to Colin Smithand shown him the plot but not mentioned the paper, and asked if he knows of any changes made at EDI that might drive that increase. He said "Yes, we did implement policy + tooling changes over this period that should affect the listed checks. The big ones were registering with ROR, Re3data, GRID, FAIRsharing, and adding the related content to EML published by EDI". 
 
-ggplot(example_node, aes(x = ym, y = mean, color = metric)) +
-  geom_line(linewidth = 1) +
-  scale_color_manual(
-    values = c(
-      "f" = "#c70a61", 
-      "a" = "#ff582d", 
-      "i" = "#1a6379", 
-      "r" = "#60c5e4"
-    ),
-    labels = c(
-      "f" = "Findable",
-      "a" = "Accessible",
-      "i" = "Interoperable",
-      "r" = "Reusable"
-    )
-  ) +
-  theme_bw() +
-  theme(
-    legend.position = "bottom",
-  ) +
-  labs(
-    x = NULL,                       
-    y = "Score",
-    color = NULL,
-    title = "Arctic Data Center",
-    caption = "Mean 'state of the repository' score via LOCF analysis. \n Dashed line shows the start of using R to edit metadata, including the first additions of structured attribute metadata into EML."
-  ) +
-  geom_vline(xintercept = as.POSIXct("2017-05-30"), linetype="longdash",
-             color = "dodgerblue4", size=0.5) 
+Arctic: The date of that bar was obtained by looking through the git history in `arctic-data` and finding when we published the first version of the training manual. It represents when we started adding structured entity and attribute information to datasets using R.
 
-```
+LTER: From Colin "That 2015 jump in data package quality was actually the result of the LTER community migrating their data holdings into the PASTA software stack (i.e. EDI data repository). The mechanism behind that step change was getting the community on board with PASTA's new quality checker. The rules of that checker were informed by extensive community discussion around the importance of improving metadata, especially data entity level metadata (e.g. data tables). Additionally, internal metrics on data quality being shared at the time encouraged site Information Managers to upgrade their local metadata practices so their packages would successfully pass the repository's strict validation."
+
 
