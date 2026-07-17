@@ -47,12 +47,14 @@ check_results <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0")
 
 A preliminary look at check results by dialect. Note: ISO representation is not very good yet in this sample as some of the bigger ISO nodes (eg PANGAEA) have not yet run.
 
-```{r summary}
+```{r, eval = FALSE}
+check_results <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0")
+
 checks_calc <- check_results %>% 
-  inner_join(runs) %>% 
-  mutate(
-    check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status),
-  ) %>%
+  inner_join(run_results) %>% 
+  filter(is.na(obsoletedBy)) %>% 
+  filter(origin_mn %in% node_status$node_id) %>% 
+  mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>%
   filter(check_status != "ERROR") %>% 
   group_by(check_name, dialect, check_type, check_level) %>%
   summarise(
@@ -62,30 +64,77 @@ checks_calc <- check_results %>%
   ) %>%
   collect()
 
+check_error <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/check-error-fail-reasons-summary.csv") %>% 
+  select(check_name, dialect, notes_controlled) %>% 
+  filter(!dialect == "") %>% 
+  distinct() %>% 
+  left_join(select(check_supported, -notes_controlled), by = c("check_name", "dialect")) %>%
+  mutate(notes_controlled = case_when(
+    is.na(is_supported) ~ "not supported", 
+    TRUE ~ notes_controlled 
+  )) %>%
+  select(-is_supported)
+
+check_sub_cat <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/fair-suite-categories.csv")
+```
+
+```{r, eval = FALSE}
 
 plot_ready <- checks_calc %>%
-  mutate(check_name_sorted = tidytext::reorder_within(check_name, mean_score, check_type))
+  left_join(check_error) %>% 
+  arrange(check_type, check_level, mean_score) %>%
+  mutate(check_name = factor(check_name, levels = unique(check_name))) %>% 
+  mutate(notes_controlled = if_else(!notes_controlled %in% c("broken", "not supported"), NA, notes_controlled)) %>% 
+  mutate(check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
+  filter(check_level != "INFO")
 
-ggplot(plot_ready, aes(x = mean_score, y = check_name_sorted)) +
-  geom_point(aes(color = dialect), size = 3, alpha = 0.8) +
+ggplot(plot_ready, aes(x = mean_score, y = check_name)) +
+  geom_tile(
+    aes(fill = check_level), 
+    width = Inf, 
+    height = 1, 
+    alpha = 0.15, 
+    color = "white",
+  ) +
+  geom_point(
+    aes(shape = notes_controlled), 
+    size = 3.8, 
+    color = "black", 
+    position = position_jitter(width = 0, height = 0.15, seed = 42)
+  ) +
+  geom_point(
+    aes(color = dialect, shape = notes_controlled), 
+    size = 3, 
+    position = position_jitter(width = 0, height = 0.15, seed = 42)
+  ) +
   facet_wrap(~ check_type, scales = "free_y", ncol = 2) +
-  tidytext::scale_y_reordered() +
-  scale_color_manual(
+  scale_shape_manual(
     values = c(
-      "EML" = "#26547c", 
-      "ISO" = "#ef476f", 
-      "SOSO" = "#ffd166"
-    )
+      "not supported" = 1,
+      "broken" = 4),
+    na.value = 16,
+    breaks = c("not supported", "broken")
   ) +
   theme_bw() +
   theme(
     legend.position = "bottom",
-    legend.box = "horizontal",
+    legend.box = "vertical",
     panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
     strip.background = element_rect(fill = "gray95"),
     strip.text = element_text(face = "bold", size = 11)
   ) +
-  labs(x = "", y = "")
+  labs(x = "", y = "", shape = "") +
+  scale_color_manual(
+    values = c(
+      "SOSO"  = "#F2A900",  
+      "ISO"  = "#4A3728",  
+      "EML" = "#2B90E8"
+    )
+  ) +
+  scale_fill_brewer(palette = "Greys")
+
+ggsave("checks-by-dialect.png", width = 13, height = 8, units = "in")
 ```
 
 ## Checks that error

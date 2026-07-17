@@ -7,14 +7,15 @@ editor: source
 ```{r}
 library(here)
 library(arrow)
-source(here("R/extract_check_data.R"))
+library(future.apply)
+devtools::load_all(here())
 source(here("R/get_check_docs.R"))
 ```
 
 
 ```{r}
 docs_dir <- here("../metadig-data/check-docs/docs-run-0.5.0")
-pid_list <- here("data/fair-5-pids-20260507.csv")
+pid_list <- here("../metadig-data/fair-5-pids-20260701.csv")
 suite <- "FAIR-suite-0.5.0"
 
 get_check_docs(pid_list, suite, docs_dir)
