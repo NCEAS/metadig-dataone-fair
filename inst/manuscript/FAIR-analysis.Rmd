@@ -511,4 +511,30 @@ Arctic: The date of that bar was obtained by looking through the git history in 
 
 LTER: From Colin "That 2015 jump in data package quality was actually the result of the LTER community migrating their data holdings into the PASTA software stack (i.e. EDI data repository). The mechanism behind that step change was getting the community on board with PASTA's new quality checker. The rules of that checker were informed by extensive community discussion around the importance of improving metadata, especially data entity level metadata (e.g. data tables). Additionally, internal metrics on data quality being shared at the time encouraged site Information Managers to upgrade their local metadata practices so their packages would successfully pass the repository's strict validation."
 
+### Supplemental Table 1: Nodes Analyzed
+
+```{r}
+n_xml <- read_xml("https://cn.dataone.org/cn/v2/node") 
+
+n_ids <- n_xml %>% xml_find_all("node/identifier") %>% xml_text() 
+n_desc <- n_xml %>% xml_find_all("node/description") %>% xml_text()
+n_url <- n_xml %>% xml_find_all("node/baseURL") %>% xml_text()
+
+nodes_df <- data.frame(identifier = n_ids, description = n_desc, base_url = n_url) %>% 
+  filter(identifier %in% nodes_to_analyse) %>% 
+  mutate(identifier = gsub("urn:node:", "", identifier))
+```
+
+
+### Supplemental Table 2: FAIR suite checks
+
+```{r}
+checks <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0") %>% 
+  distinct(check_name, check_type, check_level) %>% 
+  collect() %>% 
+  mutate(check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
+  mutate(check_level = str_to_sentence(check_level),
+         check_name = str_to_sentence(check_name)) %>% 
+  arrange(check_type)
+```
 
