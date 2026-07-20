@@ -1,6 +1,5 @@
 #' Compute Aggregate FAIR Scores from Apache Arrow Repositories
 #' 
-#' This is probably not needed but might be nice if we don't trust the scorer
 #'
 #' @param checks_dir Character string path to the partitioned checks parquet directory.
 #' @param runs_dir Character string path to the partitioned execution runs parquet directory.

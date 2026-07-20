@@ -16,5 +16,5 @@ A long-format data frame ready for flower pots, with variables \code{repo},
 \description{
 Groups historical assessment data by node (\code{datasource}) and returns lifetime
 mean averages for all four core FAIR metrics. It filters out obsoleted object
-versions and omits testing nodes.
+versions.
 }

@@ -4,7 +4,7 @@
 \alias{calc_aggregate_scores}
 \title{Compute Aggregate FAIR Scores from Apache Arrow Repositories}
 \usage{
-calc_aggregate_scores(checks_dir, runs_dir)
+calc_aggregate_scores(checks_dir, runs_dir, check_exclusions)
 }
 \arguments{
 \item{checks_dir}{Character string path to the partitioned checks parquet directory.}
@@ -15,5 +15,5 @@ calc_aggregate_scores(checks_dir, runs_dir)
 A tidy, long-format data frame containing processed, wide-mapped FAIR dimensions.
 }
 \description{
-This is probably not needed but might be nice if we don't trust the scorer
+Compute Aggregate FAIR Scores from Apache Arrow Repositories
 }

@@ -4,7 +4,7 @@
 \alias{extract_check_data}
 \title{Batch Process MetaDIG XML Documents into Arrow Parquet Datasets}
 \usage{
-extract_check_data(input_docs, out_runs_dir, out_checks_dir)
+extract_check_data(input_docs, out_runs_dir, out_checks_dir, workers = 10)
 }
 \arguments{
 \item{input_docs}{Character string specifying source directory containing raw XML check files.}
