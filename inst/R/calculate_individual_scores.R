@@ -30,7 +30,6 @@ runs_first_last <- runs %>%
 
 checks_clean <- checks %>% 
     inner_join(runs_first_last) %>% 
-    mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>% 
     filter(check_status != "ERROR") %>% 
     mutate(check_status_num = case_when(
         check_status == "SUCCESS" ~ 1,

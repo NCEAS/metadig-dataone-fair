@@ -78,7 +78,9 @@ process_xml_file <- function(filename) {
         doc <- read_xml(filename)
 
         run_data <- extract_run(doc, filename)
-        check_data <- extract_checks(doc)
+        check_data <- extract_checks(doc) %>% 
+            mutate(check_status = if_else(grepl("error|exception", tolower(check_output)), "ERROR", check_status)) %>% 
+            select(-check_output)
 
         list(run = run_data, check = check_data)
 
@@ -110,6 +112,8 @@ process_xml_file <- function(filename) {
 #' @param input_docs Character string specifying source directory containing raw XML check files.
 #' @param out_runs_dir Character string directory path where the run data should be stored (Partitioned by \code{origin_mn}).
 #' @param out_checks_dir Character string target directory path where the individual check data should be stored (Partitioned by \code{check_type} and \code{check_level}).
+#' @param public_pids Character string specifying location of public identifiers file
+#' @param workers Integer specifying number of parallel workers to use
 #'
 #' @return \code{invisible(NULL)} upon successful validation and file block write completion.
 #'
@@ -119,9 +123,11 @@ process_xml_file <- function(filename) {
 #' @importFrom future.apply future_lapply
 #' @export
 #'
-extract_check_data <- function(input_docs, out_runs_dir, out_checks_dir, workers = 10){
+extract_check_data <- function(input_docs, out_runs_dir, out_checks_dir, public_pids, workers = 10){
 
     files <- dir(input_docs, full.names = TRUE, recursive = TRUE)
+    
+    pids <- scan(public_pids, what = "char", sep = "\n")
 
     # check to make sure we don't already have the files
     if (dir.exists(out_runs_dir) && length(dir(out_runs_dir)) > 0) {
@@ -144,11 +150,14 @@ extract_check_data <- function(input_docs, out_runs_dir, out_checks_dir, workers
 
     message(paste("Processing", length(files), "new XML files..."))
 
-    # parallel process fheck docs
+    # parallel process check docs
     plan(multisession, workers = workers)
     all_results <- future_lapply(files, process_xml_file)
 
     new_runs_df  <- bind_rows(lapply(all_results, `[[`, "run"))
+    new_runs_df$public <- NA
+    new_runs_df$public <- new_runs_df$obj_id %in% pids
+    
     new_checks_df <- bind_rows(lapply(all_results, `[[`, "check"))
 
     # write_dataset handles creating the folder if it doesn't exist, and safely

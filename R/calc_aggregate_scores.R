@@ -13,7 +13,9 @@
 calc_aggregate_scores <- function(checks_dir, runs_dir, check_exclusions){
 
     
-    checks <- open_dataset(checks_dir)
+    checks <- open_dataset(checks_dir) %>% 
+        mutate(run_id = cast(run_id, string()))
+    
     runs <- open_dataset(runs_dir)
     
     runs_clean <- runs %>% 
@@ -22,7 +24,6 @@ calc_aggregate_scores <- function(checks_dir, runs_dir, check_exclusions){
     checks_calc <- checks %>% 
         # filter out erroring checks
         filter(!(check_name %in% check_exclusions)) %>% 
-        mutate(check_status = if_else(grepl("error", tolower(check_output)), "ERROR", check_status)) %>% 
         filter(check_status != "ERROR") %>% 
         mutate(
             # prep for formula

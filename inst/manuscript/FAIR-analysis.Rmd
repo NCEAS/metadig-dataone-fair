@@ -28,12 +28,26 @@ library(metadigms)
 
 
 ```{r open-clean-data}
-node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/refs/heads/main/data/node_status.csv") %>% 
-  filter(as.Date(cn.latest) > as.Date("2025-01-01") | node_id == "urn:node:KNB") %>% 
-  select(node_id, cn.count, cn.latest) %>% 
-  filter(!(node_id %in% c("urn:node:mnUCSB1", "urn:node:CANWIN")))
+#node_status <- read.csv("https://raw.githubusercontent.com/datadavev/mnstatus/refs/heads/main/data/node_status.csv") %>% 
+#  filter(as.Date(cn.latest) > as.Date("2025-01-01") | node_id == "urn:node:KNB") %>% 
+#  select(node_id, cn.count, cn.latest) %>% 
+#  filter(!(node_id %in% c("urn:node:mnUCSB1", "urn:node:CANWIN")))
 
-nodes_to_analyse <- node_status$node_id
+#nodes_to_analyse <- node_status$node_id
+
+# list of nodes to analyze frozen on 07/22/26
+nodes_to_analyse <- c(
+  "urn:node:KNB",            "urn:node:LTER",           "urn:node:PISCO",          "urn:node:DRYAD",         
+  "urn:node:PPBIO",          "urn:node:ARCTIC",         "urn:node:BCODMO",         "urn:node:GRIIDC",        
+  "urn:node:EDI",            "urn:node:RW",             "urn:node:FEMC",           "urn:node:ESS_DIVE",      
+  "urn:node:IEDA_EARTHCHEM", "urn:node:IEDA_USAP",      "urn:node:CA_OPC",         "urn:node:HYDROSHARE",    
+  "urn:node:NPDC",           "urn:node:CERP_SFWMD",     "urn:node:DRP",            "urn:node:SCTLD",         
+  "urn:node:SFWMD",          "urn:node:OPENTOPO",       "urn:node:BOREALIS",       "urn:node:HD",            
+  "urn:node:NSIDC",          "urn:node:DVNO",           "urn:node:SI",             "urn:node:GEM",           
+  "urn:node:CIB",            "urn:node:ISRIC",          "urn:node:SNAP",           "urn:node:BONARES",       
+  "urn:node:OBIS_SEAMAP",    "urn:node:GEUS",           "urn:node:FWC",            "urn:node:SDR",           
+  "urn:node:OBIS",           "urn:node:NORDICANA_D",    "urn:node:PDC",            "urn:node:PANGAEA"
+)
 
 errored_checks <- c("Resource License Present",
                     "Entity checksum and algorithm are present.",
@@ -225,7 +239,6 @@ fair_checks <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0") %>%
 
 check_supported <- read.csv("/home/jclark/metadig-dataone-fair/inst/data/check-error-fail-reasons-summary.csv") %>% 
   select(check_name, dialect, notes_controlled) %>% 
-  filter(!dialect == "") %>% 
   distinct() %>% 
   full_join(fair_checks, by = c("check_name", "dialect")) %>%
   mutate(is_supported = case_when(notes_controlled == "not supported" ~ FALSE,
