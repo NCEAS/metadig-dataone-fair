@@ -1,9 +1,10 @@
-# Evaluating FAIR within the DataONE network of repositories
+# Evaluating FAIR within the DataONE network
 
 - **Contributors**: Jeanette Clark, Matthew B. Jones, Peter Slaughter, Ted Habermann, Chris Beltz
 - **Contact**: jclark@nceas.ucsb.edu
 - **License**: [Apache 2](http://opensource.org/licenses/Apache-2.0)
 - [Package source code on Github](https://github.com/NCEAS/metadig-dataone-fair)
+- **Citation**: metadig-dataone-fair: Evaluating FAIR within the DataONE network. S. Jeanette Clark, Matthew B. Jones, Peter Slaughter, Ted Habermann, Chris Beltz. doi:10.18739/A2RB6W465
 
 Provides code for analysis and graphing of FAIR qualities from the metadata in the 
 [DataONE network of data repositories](https://www.dataone.org/current-member-nodes), including the
