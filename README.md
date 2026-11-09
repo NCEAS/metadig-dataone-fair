@@ -1,4 +1,3 @@
-#
 # Evaluating FAIR within the DataONE network of repositories
 
 - **Contributors**: Jeanette Clark, Matthew B. Jones, Peter Slaughter, Ted Habermann, Chris Beltz
