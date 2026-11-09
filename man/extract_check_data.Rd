@@ -4,7 +4,13 @@
 \alias{extract_check_data}
 \title{Batch Process MetaDIG XML Documents into Arrow Parquet Datasets}
 \usage{
-extract_check_data(input_docs, out_runs_dir, out_checks_dir, workers = 10)
+extract_check_data(
+  input_docs,
+  out_runs_dir,
+  out_checks_dir,
+  public_pids,
+  workers = 10
+)
 }
 \arguments{
 \item{input_docs}{Character string specifying source directory containing raw XML check files.}
@@ -12,6 +18,10 @@ extract_check_data(input_docs, out_runs_dir, out_checks_dir, workers = 10)
 \item{out_runs_dir}{Character string directory path where the run data should be stored (Partitioned by \code{origin_mn}).}
 
 \item{out_checks_dir}{Character string target directory path where the individual check data should be stored (Partitioned by \code{check_type} and \code{check_level}).}
+
+\item{public_pids}{Character string specifying location of public identifiers file}
+
+\item{workers}{Integer specifying number of parallel workers to use}
 }
 \value{
 \code{invisible(NULL)} upon successful validation and file block write completion.
