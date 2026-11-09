@@ -1,0 +1,208 @@
+#' Fetch Aggregated FAIR Assessment Scores
+#'
+#' Connects to the DataONE Quality API to fetch raw quality assessment scores
+#' for suite: "FAIR-suite-0.5.0"
+#'
+#' @return A data frame containing the aggregated metrics
+#'
+#' @importFrom httr GET add_headers content
+#' @export
+get_agg_data <- function(){
+    response <- httr::GET(
+        url = "http://api.dataone.org/quality/scores/",
+        query = list(
+            id = "urn:node:CN",
+            suite = "FAIR-suite-0.5.0"
+        ),
+        httr::add_headers(Accept = "text/csv")
+    )
+    
+    # To view the content as a data frame
+    suppressMessages(data <- content(response, as = "parsed", type = "text/csv"))
+    return(data)
+}
+
+#' Calculate Lifetime FAIR Scores across Nodes
+#'
+#' Groups historical assessment data by node (`datasource`) and returns lifetime
+#' mean averages for all four core FAIR metrics. It filters out obsoleted object 
+#' versions.
+#'
+#' @param data A data frame containing raw quality scores from `get_agg_data`.
+#'
+#' @return A long-format data frame ready for flower pots, with variables \code{repo}, 
+#'   \code{label} (the FAIR metric), \code{score}, and \code{score_100} (scaled percentage).
+#'
+#' @importFrom dplyr filter group_by summarise mutate %>%
+#' @importFrom tidyr pivot_longer
+#' @export
+get_node_scores_all_time <- function(data){
+    
+    cum_repo <- data %>% 
+        filter(is.na(obsoletedBy)) %>% 
+        group_by(datasource) %>% 
+        summarise(Findable = mean(scoreFindable),
+                  Accessible = mean(scoreAccessible),
+                  Interoperable = mean(scoreInteroperable),
+                  Reusable = mean(scoreReusable)) %>% 
+        pivot_longer(cols = c("Findable", "Accessible", "Interoperable", "Reusable"), names_to = 'label', values_to = 'score') %>% 
+        mutate(score_100 = score*100) %>% 
+        mutate(repo = gsub("urn:node:","" ,datasource))
+    
+    return(cum_repo)
+    
+}
+
+#' Calculate Cumulative Monthly FAIR Scores
+#'
+#' Aggregates FAIR scores by month and calculates their cumulative mean over time, 
+#' returning a long-format data frame suitable for plotting. Filters out records 
+#' uploaded prior to 2000.
+#'
+#' @param data A data frame containing at least the following columns: 
+#'   `dateUploaded` , `scoreFindable`, `scoreAccessible`, 
+#'   `scoreInteroperable`, and `scoreReusable`.
+#'
+#' @return A data frame with columns: `ym`, `num_mean`, 
+#'   `num_cum_mean`, `metric` (Factor: Findable, Accessible, 
+#'   Interoperable, Reusable), and `mean`.
+#'
+#' @import dplyr
+#' @import tidyr
+#' @import lubridate
+#' @export
+get_scores_cum_mean_ym <- function(data){
+    
+    scores <- data %>% 
+        filter(dateUploaded > as.Date("2000-01-01")) %>% 
+        mutate(ym = as.Date(sprintf("%4s-%02d-01", year(dateUploaded), month(dateUploaded)))) %>%
+        mutate(scoreF = scoreFindable * 100.0) %>%
+        mutate(scoreA = scoreAccessible * 100.0) %>%
+        mutate(scoreI = scoreInteroperable * 100.0) %>%
+        mutate(scoreR = scoreReusable * 100.0)
+    
+    score_cumulative <- scores %>%
+        arrange(ym) %>%
+        group_by(ym) %>% 
+        summarise(f=mean(scoreF, na.rm = T), a=mean(scoreA, na.rm = T), i=mean(scoreI, na.rm = T), r=mean(scoreR, na.rm = T), num_mean = n(), .groups = "drop") %>%
+        mutate(fc=cummean(f), ac=cummean(a), ic=cummean(i), rc=cummean(r), num_cum_mean = n())
+    
+    score_cumulative <- score_cumulative %>% 
+        select(ym, f, a, i, r, fc, ac, ic, rc, num_mean, num_cum_mean) %>% 
+        gather(metric, mean, -ym, -num_mean, -num_cum_mean)
+    
+    score_cumulative_alone <- score_cumulative %>% filter(metric %in% c('fc', 'ac', 'ic', 'rc'))
+    
+    score_cumulative_alone$metric <- factor(score_cumulative_alone$metric,
+                                            levels=c("fc", "ac", "ic", "rc"),
+                                            labels=c("Findable", "Accessible", "Interoperable", "Reusable"))
+    
+    
+    
+    return(score_cumulative_alone)
+}
+
+#' Calculate Monthly State-Based FAIR Scores
+#'
+#' Evaluates the continuous state of repository FAIR scores over time. For each 
+#' unique sequence identifier, it selects the last upload per month, completes 
+#' a monthly time-grid, carries scores forward (LOCF) to account for persistent 
+#' datasets, and aggregates monthly means.
+#'
+#' @param data A data frame containing at least the following columns: 
+#'   `dateUploaded`, `sequenceId`,  `scoreFindable`, `scoreAccessible`, 
+#'   `scoreInteroperable`, and `scoreReusable`.
+#'
+#' @return A data frame with columns: `ym` (Date), `num_mean` (integer count of active 
+#'   sequences), `metric` (character: f, a, i, r), and `mean` (numeric score 0-100).
+#'
+#' @import dplyr
+#' @import tidyr
+#' @importFrom zoo na.locf
+#' @export
+
+get_scores_monthly_state <- function(data){
+    global_max_ym <- data %>%
+        mutate(ym = as.Date(format(dateUploaded, "%Y-%m-01"))) %>%
+        pull(ym) %>%
+        max(na.rm = TRUE)
+    
+    long_df <- data %>%
+        mutate(ym = as.Date(format(dateUploaded, "%Y-%m-01"))) %>%
+        filter(dateUploaded > as.Date("2000-01-01")) %>%
+        
+        # extract the last dataset uploaded in each month per sequenceId
+        arrange(sequenceId, ym, dateUploaded) %>%
+        group_by(sequenceId, ym) %>%
+        summarise(
+            scoreFindable      = last(scoreFindable),
+            scoreAccessible    = last(scoreAccessible),
+            scoreInteroperable = last(scoreInteroperable),
+            scoreReusable      = last(scoreReusable),
+            .groups = "drop"
+        ) %>%
+        # generate the complete monthly timeline grid for every sequenceId
+        group_by(sequenceId) %>%
+        complete(ym = seq.Date(min(ym, na.rm = TRUE), global_max_ym, by = "month")) %>%
+        # roll the scores forward (LOCF) within each sequence cohort
+        # na.rm = FALSE ensures leading NAs (months before initial upload) are preserved
+        mutate(across(starts_with("score"), ~ zoo::na.locf(.x, na.rm = FALSE))) %>%
+        ungroup() %>%
+        # calculate monthly means, no cumulative mean since each month contains the most recent version
+        # of all datasets published that month and prior
+        group_by(ym) %>%
+        summarise(
+            num_mean = n(),
+            f = mean(scoreFindable, na.rm = TRUE),
+            a = mean(scoreAccessible, na.rm = TRUE),
+            i = mean(scoreInteroperable, na.rm = TRUE),
+            r = mean(scoreReusable, na.rm = TRUE),
+            .groups = "drop"
+        ) %>%
+        
+        # reshaping
+        pivot_longer(
+            cols = c(f, a, i, r),
+            names_to = "metric",
+            values_to = "mean"
+        ) %>%
+        mutate(mean = mean * 100) %>%
+        select(ym, num_mean, metric, mean) %>%
+        arrange(ym, metric)
+    
+    return(as.data.frame(long_df))
+}
+
+#' Calculate Monthly FAIR Score Quantiles and Means
+#'
+#'
+#' @param data A data frame containing `dateUploaded`, `scoreFindable`, `scoreAccessible`, 
+#'   `scoreInteroperable`, and `scoreReusable`.
+#'
+#' @return A data frame with columns: `ym`, `metric`, 
+#'   `num_records`, `mean_score`, `p25`, 
+#'   and `p75` (numeric).
+#'
+#' @import dplyr
+#' @import tidyr
+#' @import lubridate
+#' @export
+get_scores_quantiles_ym <- function(data) {
+    data %>% mutate(ym = as.Date(sprintf("%4s-%02d-01",
+                                    lubridate::year(dateUploaded), 
+                                    lubridate::month(dateUploaded)))) %>% 
+        filter(dateUploaded > as.Date("2000-01-01")) %>% 
+        pivot_longer(
+            cols = c(scoreFindable, scoreAccessible, scoreInteroperable, scoreReusable), 
+            names_to = "metric", 
+            values_to = "score"
+        ) %>%
+        group_by(ym, metric) %>%
+        summarise(
+            num_records = n(),
+            mean_score  = mean(score, na.rm = TRUE) * 100,
+            p25         = quantile(score, 0.25, na.rm = TRUE) * 100,
+            p75         = quantile(score, 0.75, na.rm = TRUE) * 100,
+            .groups     = "drop"
+        )
+}

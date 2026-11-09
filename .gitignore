@@ -2,3 +2,13 @@
 .Rhistory
 .RData
 .Ruserdata
+
+**/.quarto/
+**/*.quarto_ipynb
+**/_manuscript/
+**/_freeze/
+
+*.Rproj
+
+data/*
+inst/misc/figures/*

@@ -1,0 +1,36 @@
+---
+title: "Data Processing"
+format: html
+editor: source
+---
+
+```{r}
+library(here)
+library(arrow)
+library(future.apply)
+devtools::load_all(here())
+source(here("R/get_check_docs.R"))
+```
+
+
+```{r}
+docs_dir <- here("../metadig-data/check-docs/docs-run-0.5.0")
+pid_list <- here("../metadig-data/fair-5-pids-20260701.csv")
+suite <- "FAIR-suite-0.5.0"
+
+get_check_docs(pid_list, suite, docs_dir)
+```
+
+```{r}
+out_checks <- here("../metadig-data/check-data-0.5.0")
+out_runs <- here("../metadig-data/run-data-0.5.0")
+input_docs <- "~/metadig-data/check-docs/docs-run-0.5.0"
+public_pids <- "/home/jclark/metadig-data/public_pids"
+
+extract_check_data(input_docs, out_runs, out_checks, public_pids)
+```
+
+
+
+
+

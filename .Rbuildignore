@@ -1,0 +1,12 @@
+^LICENSE\.md$
+^vignettes/articles$
+z_other
+.*.code-workspace
+.*.Rproj
+^.*\.Rproj$
+^\.Rproj\.user$
+
+inst/figures
+inst/shiny
+inst/data
+inst/images

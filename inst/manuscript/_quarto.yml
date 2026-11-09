@@ -1,0 +1,63 @@
+project:
+  type: manuscript
+  # This ensures the manuscript can find the package root for DESCRIPTION
+  execute-dir: project 
+
+manuscript:
+  article: metadig-dataone-fair.qmd
+
+bibliography: references.bib
+csl: nature.csl
+
+# Author and Affiliation Metadata
+author:
+  - name: Jeanette Clark
+    orcid: 0000-0000-0000-0000
+    email: jclark@nceas.ucsb.edu
+    affiliations:
+      - name: University of California Santa Barbara
+        department: National Center for Ecological Analysis and Synthesis
+        city: Santa Barbara
+        state: CA
+    attributes:
+      corresponding: true
+  - name: Angie Garcia
+    orcid: 0000-0000-0000-0000
+    email: agracia@nceas.ucsb.edu
+    affiliations:
+      - name: University of California Santa Barbara
+        department: National Center for Ecological Analysis and Synthesis
+        city: Santa Barbara
+        state: CA
+  - name: Nicole Greco
+    orcid: 0000-0000-0000-0000
+    email: greco@nceas.ucsb.edu
+    affiliations:
+      - name: University of California Santa Barbara
+        department: National Center for Ecological Analysis and Synthesis
+        city: Santa Barbara
+        state: CA
+  - name: Ted Habermann
+    orcid: 0000-0000-0000-0000
+    email: ted@metadatagamechangers.com
+    affiliations:
+      - name: Metadata Game Changers
+        city: Boulder
+        state: CCOA
+  - name: Matthew B. Jones
+    orcid: 0000-0000-0000-0000
+    email: jones@nceas.ucsb.edu
+    affiliations:
+      - name: University of California Santa Barbara
+        department: National Center for Ecological Analysis and Synthesis
+        city: Santa Barbara
+        state: CA
+
+# Additional Manuscript Metadata
+abstract: |
+  This is a brief summary of the manuscript and the package's purpose.
+keywords: [FAIR, metadata quality, assessment]
+
+execute:
+  freeze: auto      # Recommended for manuscripts to cache results
+  echo: false       # Hide code by default for an 'article' look
