@@ -1,28 +1,26 @@
 #
 # Evaluating FAIR within the DataONE network of repositories
 
-- **Contributors**: Matthew B. Jones, Peter Slaughter, Ted Habermann
-- **Contact**: jones@nceas.ucsb.edu
+- **Contributors**: Jeanette Clark, Matthew B. Jones, Peter Slaughter, Ted Habermann, Chris Beltz
+- **Contact**: jclark@nceas.ucsb.edu
 - **License**: [Apache 2](http://opensource.org/licenses/Apache-2.0)
 - [Package source code on Github](https://github.com/NCEAS/metadig-dataone-fair)
 
 Provides code for analysis and graphing of FAIR qualities from the metadata in the 
 [DataONE network of data repositories](https://www.dataone.org/current-member-nodes), including the
-[KNB Data Repository](https://knb.ecoinformatics.org), [Dryad](http://datadryad.org),
+[KNB Data Repository](https://knb.ecoinformatics.org)
 and the NSF [Arctic Data Center](https://arcticdata.io).
 Each DataONE repository implements metadata using dialects of their choosing,
-and MetaDIG provides a cross-dialect engine for runninng comprehensive quality
-checks for improvement and guidannce.  In this repository, we analze the results
+and MetaDIG provides a cross-dialect engine for running comprehensive quality
+checks for improvement and guidance.  In this repository, we analyze the results
 of those checks and create graphs of changes in collection quality over time
 overall within the DataONE network and within individual repositories.
 
 ## Getting started
 
-The analytical code is present in the top level `plotFAIRMetrics.Rmd` file.  The data
-file is not included in this repository but is accessible in the archived release on the KNB:
+The analytical code used to generate statistics and figures is located in `inst/manuscript`. Data used in this analysis, as submitted to Nature Scientific Data, are available at [DOI]. 
 
-Matthew Jones, Peter Slaughter, and Ted Habermann. 2019. Quantifying FAIR: metadata improvement and 
-guidance in the DataONE repository network. Knowledge Network for Biocomplexity. [doi:10.5063/F1KP80GX](https://doi.org/doi:10.5063/F1KP80GX).
+This package can be installed and loaded using standard `devtools` commands after a `git clone`, or installed directly via `devtools::install_github("NCEAS/metadig-dataone-fair")`. 
 
 ## Acknowledgments
 

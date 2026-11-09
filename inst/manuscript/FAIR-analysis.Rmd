@@ -527,7 +527,14 @@ checks <- open_dataset("/home/jclark/metadig-data/check-data-0.5.0") %>%
   mutate(check_type = factor(check_type, levels = c("Findable", "Accessible", "Interoperable", "Reusable"))) %>% 
   mutate(check_level = str_to_sentence(check_level),
          check_name = str_to_sentence(check_name)) %>% 
-  arrange(check_type)
+  arrange(check_type) %>% 
+  filter(check_level != "Info") %>%
+  pivot_wider(
+    id_cols = check_type,
+    names_from = check_level,
+    values_from = check_name,
+    values_fn = ~paste(.x, collapse = "\n")
+  )
 
 knitr::kable(checks)
 ```
