@@ -1,5 +1,5 @@
 ---
-title: "Factors Affecting Metadata Quality in a Federation of Repositories"
+title: "Metadata-Centered Evaluation of FAIR Principles Across the DataONE Network"
 author: "Jeanette Clark"
 date: "2026-06-15"
 output: html_document
@@ -87,17 +87,7 @@ raw_long_clean <- agg_scores %>%
   filter(!is.na(score))
 ```
 
-## Methods
-
-In addition to text from  [google doc](https://docs.google.com/document/d/1Se9ClS3y3rlRyEmO1-Fb8Flp6nHKiKKdIoxtYNT-DJc/edit?tab=t.0)
-...
-
-Analyzed documents are restricted to those from member nodes that have been harvested by DataONE on or after January 1, 2025. Additionally, the documents used are also neccesarily of a dialect that is supported by MetaDIG. The three supported dialects are Ecological Metadata Language (EML), ISO 19115 (ISO), and Science on Schema.org (SOSO). This sample consists of X total documents from Y nodes. In DataONE, datasets are versioned by identifier into an obsolesence chain. These chains are identified and given their own identifier to use in analysis where relevant. Except where explicitly noted, all analyses only include the most recent version of a dataset metadata document. 
-
-[possibly move some of these details to results]
-During data processing, some anomalies in the check-level data were noted and investigated. As a result of this work, three checks were found to be producing errors consistently for one or more dialects. The "Resource title length" check was found to not account for all possible ISO configurations of the dataset title, and therefore was incorrectly failing when it should have passed. Also for ISO documents, the xpath used in the "Resource License Present" check was found to be too strict, and was not finding legigitimate and well structured uses of the schema. Finally, for SOSO documents, the "Entity checksum and algorithm are present" check was found to give many false positives - passing results when the information did not exist. Because of these errors, these three checks were excluded from the analysis and the calculation of all scores. This does alter the results, in that with fewer overall checks, the denominator is lower, so failing checks will lower scores correspondingly more than with the full suite. Additionally, datasets will not get credit that they would have recieved for passing these checks. Despite this, we still believe the overall trends in the results are unchanged without these 3 checks.
-
-## Results
+## Figures
 
 ```{r dataone}
 
@@ -221,12 +211,8 @@ get_metric <- function(data, metric, fn) {
 ```
 
 
-Metadata quality varied significantly by metric across the Y repositories. Repositories scored the highest in the Findable metric (M = `r get_metric(node_scores, "Findable", "mean")`, SD = `r get_metric(node_scores, "Findable", "sd")`), followed by Accessible (M = `r get_metric(node_scores, "Accessible", "mean")`, SD = `r get_metric(node_scores, "Accessible", "sd")`), Interoperable (M = `r get_metric(node_scores, "Interoperable", "mean")`, SD = `r get_metric(node_scores, "Interoperable", "sd")`), and Reusable (M = `r get_metric(node_scores, "Reusable", "mean")`, SD = `r get_metric(node_scores, "Reusable", "sd")`). Variability was highest for Interoperable, which had a difference of `r get_metric(node_scores, "Interoperable", 'q_90') - get_metric(node_scores, "Interoperable", 'q_10')`% between the 90th and 10th percent quantiles, in contrast to Findable with a difference of only `r get_metric(node_scores, "Findable", 'q_90') - get_metric(node_scores, "Findable", 'q_10')`%. 
+Repository-level metadata quality varied across the `r length(nodes_to_analyse)` repositories included in the analysis (Figure 2). Among the four FAIR principles, repositories scored the highest in the Findable metric (M = `r get_metric(node_scores, "Findable", "mean")`, SD = `r get_metric(node_scores, "Findable", "sd")`), followed by Accessible (M = `r get_metric(node_scores, "Accessible", "mean")`, SD = `r get_metric(node_scores, "Accessible", "sd")`), Interoperable (M = `r get_metric(node_scores, "Interoperable", "mean")`, SD = `r get_metric(node_scores, "Interoperable", "sd")`), and Reusable (M = `r get_metric(node_scores, "Reusable", "mean")`, SD = `r get_metric(node_scores, "Reusable", "sd")`). The variability also differed among FAIR metrics. Interoperable scores exhibited the greatest variability across repositories, with a `r get_metric(node_scores, "Interoperable", 'q_90') - get_metric(node_scores, "Interoperable", 'q_10')`% difference between the 90th and 10th percentiles. In contrast, Findable scores were comparatively consistent, differing by `r get_metric(node_scores, "Findable", 'q_90') - get_metric(node_scores, "Findable", 'q_10')`%. across the same percentile range. Accessible and Reusable scores displayed intermediate variability.
 
-(probably for Discussion section)
-The wide distribution of mean scores between repositories, especially in A/I/R show that differences in repositories themselves are important drivers of metadata quality. These differences are likely largely driven by varying standards and protocols used by each repository, including differences in dialect used, curation level, internal metadata standards, and metadata sharing/replication methods. (possible discussion about how metadata on the CN might not always capture the richness of metadata available on the MN, or even within the files themselves, eg: netCDF with embedded metadata that is not captured here).
-
-Key point: The repository itself matters - not all repos score the same.
 
 ### Fig 2: Dialect Effects
 
@@ -268,8 +254,6 @@ dialect_scores <- check_supported %>%
 ```
 
 ```{r dialect-plots}
-
-
 ggplot(raw_long_clean, aes(x = score, y = dialect, fill = dialect)) +
   geom_errorbar(
     data = dialect_scores,
@@ -309,16 +293,30 @@ ggsave("dialect-effects.png", width = 7, height = 6, units = "in")
 
 Figure 2: Distribution of dataset-level score frequencies across metadata dialects and FAIR dimensions. Solid red lines show the maximum possible score for each dialect/dimension.
 
-Figure 2 shows a sinaplot of dataset-level quality scores by dialect across each FAIR dimension, along with the maximum possible score for each dialect in that dimension. This plot shows how dialect influences vary across the FAIR dimensions, and the relationship between actual scores and possible scores. For each dialect and FAIR dimension, the maximum possible score was calculated. Notably, this is not always 100% since some checks are not supported by every dialect. For example, SOSO currently has no accepted way to include provenenace information, of which there are 3 Reusable checks. EML has the highest overall possible score, followed by ISO, then SOSO. 
 
-[Add some real values from the data in this para in parentheses]
-Similar to the repository results, Findable shows a higher mean than the other dimensions. In Accessible, SOSO has the highest median score. EML scores much higher than both SOSO and ISO in Interoperable checks, and both EML and ISO score higher than SOSO in the Reusable checks. Note that the horizontal lines in the point data is expected, given that the points represent raw dataset scores, and there are mathematical limitations of the number of possible scores for a single dataset. 
+```{r}
+metric_summary_all <- raw_long_clean %>%
+  mutate(score = score * 100) %>% 
+  group_by(check_type) %>%
+  summarize(
+    median_score = median(score),
+    distribution_spread_iqr = IQR(score),
+    .groups = "drop"
+  ) %>%
+  arrange(check_type)
+```
 
-(Discussion)
-
-Dialect choice has the most significant impact on Interoperable and Reusable scores, since these two dimensions have the largest range in maximum possible score between dialects. Based on this alone, it is clear that metadata dialect choice is an important factor when considering the overall quality of a metadata record. However, variability of actual scores within each dialect is quite high. EML has a ~30 point difference between the 1st and 3rd quartile for A/I/R. Additionally, the difference between the median dialect score and the maximum possible score is quite high, >20, for every dialect and every dimension. This implies that most researchers/repositories do not use the full expressivity of any given dialect. Although there is a cap to the possible score in some dialects, extremely few datasets achieve the maximum possible score. This means that there is still considerable room to grow to improve metadata quality, regardless of dialect.
-
-Key point: Dialect matters, but how the dialect is used might matter more. Rich metadata can be written in any dialect - with some limitations.
+```{r}
+metric_summary_dialect <- raw_long_clean %>%
+  group_by(dialect, check_type) %>%
+  mutate(score = score * 100) %>% 
+  summarize(
+    median_score = median(score),
+    distribution_spread_iqr = IQR(score),
+    .groups = "drop"
+  ) %>%
+  arrange(dialect, check_type)
+```
 
 ### Fig 3: Time Effects
 
@@ -385,12 +383,7 @@ ggsave("monthly-timeseries-anon.png", width = 5, height = 8, units = "in")
 
 Figure 3: Panel A: Timeseries of mean monthly scores with a 3 month running mean across the four FAIR dimensions. Solid black line is the overall DataONE mean. Lighter lines are individual repository timeseries. Panel B: Cumulative number of datasets across DataONE. Panel C: Cumulative share of datasets by dialect across DataONE. 
 
-Timeseries of a 3-month rolling average of mean scores by FAIR dimension for all DataONE repositories show results similar to those described in previous work. Findable and Accessible are increasing, slightly, through time, while Interoperable and Reusable stay fairly flat. Individual repository scores through time, as expected, are highly variable, both in long term trends and short term trends. Some repositories show no variability at all in either the long or short term. Their scores show on the timeseries as completely flat. Other repositories show extremely high short term variability month to month, with timeseries that look quite jagged. Finally, there are some repositories that show an increase in monthly scores through time, but most repositories' long term trends are fairly flat.
 
-(Discussion)
-High variability in trends between repositories 3-month rolling mean scores highlight what a large impact repository standards and policies have on metadata scores, showing similar trends as Figure 1. However, two major trends do emerge from this data. First, the effect of time on metadata scores shows that Findable and Accessible increase over time, while Interoperable and Reusable remain fairly flat. This is consistent with previous work [citations]. The second is that at the individual repository level, improvement through time is the exception, rather than the norm. 
-
-Key point: validation of previously known trends in FA vs IR, and that there isn't much change in metadata quality through time, overall
 
 ### Fig 4: Curation Effects
 
@@ -444,17 +437,6 @@ ggsave("curation-effects.png", width = 6, height = 5, units = "in")
 ```
 Figure 4: Timeseries of cumulative mean dataset scores across the four FAIR dimensions for the Arctic Data Center repository. Dashed lines show the scores of only first submitted versions of a dataset, solid lines show the scores of only final versions of the same datasets.
 
-(some of this maybe in methods)
-The Arctic Data Center is one DataONE node which has a curation team, and strict metadata requirements that are set as a combination of internal policy, funder requirements, and collaborator requirements [not sure if we want to mention this, but there are some holdover standards as a result of our NCEI partnership]. The submission process to the Arctic Data Center starts when researchers submit their dataset and metadata via an online webform. This webform guides users through some minimum requirements, but does not automatically enforce every metadata requirement, for the simple reason that requirements differ slightly depending on data content. Since the Arctic Data Center is a long-tail repository publishing datasets from a huge variety of disciplines, it is impossible for the webform to automatically enforce requirements for all possible types of data that may be received. Because of this and other factors, initial submissions to the Arctic Data Center typically need metadata additions to meet Arctic Data Center requirements, which are made in collaboration between the curation team and the researchers themselves.
-
-In this analysis, we calculated the cumulative repository mean through time of initial versions of datasets and final versions of datasets (Figure 4). The Arctic Data Center is the successor to the previous National Science Foundation (NSF) funded repository for the Arctic sciences, and inherited all of the previous repository's datasets. These datasets are visible in the initial version line prior to 2016. Note there is no final version prior to 2016 because all of those datasets, written in the ISO dialect, were converted to EML in 2016, so the corresponding final versions are all included only in the cumulative mean after 2016. Initially on conversion to EML in 2016, I and R scores briefly decreased. Continuing updates of these datasets, however, along with repository policy changes (such as requiring structured attribute metadata), cause the final version scores to increase. 
-
-(Discussion)
-A comparison of the scores between initial and final versions shows first, unsurprisingly, that curation increases metadata quality. Second, the widening of the gap between initial and final versions, especially in A/I/R, shows how even when initial submissions are relatively flat through time, repository curation efforts can cause an increase in overall metadata quality. Finally, slight increases in initial scores through time, especially in Findable and Interoperable, show how researchers themselves are writing better metadata initially. [maybe something about software here as well?]
-
-Key points: curation increases scores, including through time. Researchers are writing better initial metadata (not all hope is lost)
-
-
 ## Figure 5: Repository Policy Effects
 
 ```{r}
@@ -501,7 +483,7 @@ ggplot(node_states, aes(x = ym, y = mean/100, color = metric)) +
       "a" = "Accessible",
       "i" = "Interoperable",
       "r" = "Reusable")) +
-  facet_wrap(~datasource, scales = "free_x", nrow = 1) +
+  facet_wrap(~datasource, nrow = 1) +
   scale_y_continuous(labels = scales::percent_format()) +
   theme_bw() +
   theme(
@@ -518,12 +500,6 @@ ggplot(node_states, aes(x = ym, y = mean/100, color = metric)) +
 
 ggsave("policy-effects.png", width = 10, height = 4, units = "in")
 ```
-
-EDI: which has a huge increase in Accessible scores through time. I reached out to Colin Smithand shown him the plot but not mentioned the paper, and asked if he knows of any changes made at EDI that might drive that increase. He said "Yes, we did implement policy + tooling changes over this period that should affect the listed checks. The big ones were registering with ROR, Re3data, GRID, FAIRsharing, and adding the related content to EML published by EDI". 
-
-Arctic: The date of that bar was obtained by looking through the git history in `arctic-data` and finding when we published the first version of the training manual. It represents when we started adding structured entity and attribute information to datasets using R.
-
-LTER: From Colin "That 2015 jump in data package quality was actually the result of the LTER community migrating their data holdings into the PASTA software stack (i.e. EDI data repository). The mechanism behind that step change was getting the community on board with PASTA's new quality checker. The rules of that checker were informed by extensive community discussion around the importance of improving metadata, especially data entity level metadata (e.g. data tables). Additionally, internal metrics on data quality being shared at the time encouraged site Information Managers to upgrade their local metadata practices so their packages would successfully pass the repository's strict validation."
 
 ### Supplemental Table 1: Nodes Analyzed
 
